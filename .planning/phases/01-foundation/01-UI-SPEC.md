@@ -87,6 +87,19 @@ Declared values (multiples of 4):
 | Text secondary | `#71717A` | Labels, timestamps, placeholders |
 | Border | `#E4E4E7` | Dividers, panel borders |
 
+### Gene Category Colors (DeskClaw-inspired)
+
+| Category | Dark | Light | Usage |
+|----------|------|-------|-------|
+| 开发 (Dev) | `#10B981` | `#059669` | Code-writing genes |
+| 数据 (Data) | `#3B82F6` | `#2563EB` | Data analysis genes |
+| 运维 (Ops) | `#F59E0B` | `#D97706` | Operations genes |
+| 网络 (Network) | `#8B5CF6` | `#7C3AED` | Network/API genes |
+| 创意 (Creative) | `#EC4899` | `#DB2777` | Content creation genes |
+| 沟通 (Comm) | `#06B6D4` | `#0891B2` | Communication genes |
+| 安全 (Security) | `#EF4444` | `#DC2626` | Security genes |
+| 效率 (Efficiency) | `#84CC16` | `#65A30D` | Automation genes |
+
 ### Ambient Glow Effect
 
 During agent work, the chat input area pulses with a subtle glow:
@@ -109,44 +122,51 @@ During agent work, the chat input area pulses with a subtle glow:
 
 ## Layout
 
-### Chat View (Right Panel)
+### Main Office View (DeskClaw-inspired Blackboard)
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│  [Model Picker Dropdown ▾]                         [⚙ Settings] │  ← Top bar (h-12, border-bottom)
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│   ┌─────────────────────────────────────────┐                  │
-│   │ Agent (Avatar + Name)                    │                  │
-│   │ Message content with markdown...         │                  │
-│   │ [attached: file.pdf]                    │                  │
-│   │                                          │                  │
-│   │                            10:32 AM     │                  │
-│   └─────────────────────────────────────────┘                  │
-│                                                                │
-│                         ┌──────────────────────────────────┐   │
-│                         │ User message                      │   │
-│                         │                            10:33  │   │
-│                         └──────────────────────────────────┘   │
-│                                                                │
-├────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────────────────────┐  ┌────────────────────┐  │  ← Input area (sticky bottom)
-│  │ Type a message...                │  │ [📎]    [Send →]  │  │
-│  └──────────────────────────────────┘  └────────────────────┘  │
-│  💡 Supports drag-drop, paste, or click to upload             │  ← Helper text (text-xs, text-secondary)
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ClawHive                              [Model ▾]         [🌙] [⚙️]         │  ← Top bar (h-12)
+├─────────────┬───────────────────────────────────────────────────────────────┤
+│             │  ┌─────────────────────────────────────────────────────────┐  │
+│   Team      │  │  📋 Blackboard                                           │  │
+│   ───────   │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │  │
+│   👤 Agent  │  │  │ Current Task│  │ Agent Status│  │ Recent Activity │  │  │
+│   👤 Agent  │  │  │             │  │  ● 3 active │  │ • Completed...  │  │  │
+│             │  │  │ [Progress]  │  │  ○ 1 idle   │  │ • Started...    │  │  │
+│   Genes     │  │  └─────────────┘  └─────────────┘  └─────────────────┘  │  │
+│   ───────   │  │                                                         │  │
+│   🟢 Dev    │  │  ┌─────────────────────────────────────────────────┐    │  │
+│   🔵 Data   │  │  │ Quick Actions                                     │    │  │
+│   🟡 Ops    │  │  │ [New Task] [View Logs] [Settings] [Gene Manager]│    │  │
+│             │  │  └─────────────────────────────────────────────────┘    │  │
+│  [+ New]    │  └─────────────────────────────────────────────────────────┘  │
+│             │                                                               │
+│             │  ┌─────────────────────────────────────────────────────────┐  │
+│             │  │  💬 Chat / Command                                       │  │
+│             │  │  Type a message...                          [📎] [→]  │  │
+│             │  │  ⌘↵ to send · Drag files or paste images              │  │
+│             │  └─────────────────────────────────────────────────────────┘  │
+└─────────────┴───────────────────────────────────────────────────────────────┘
+     240px                           Flexible (remaining space)
 ```
 
-- Left panel: Agent list (Phase 1: single agent, placeholder for multi-agent future)
-- Right panel: Chat view
-- Split: 280px left / flex-1 right
-- Left panel hidden on narrow screens (< 768px)
+**Left Panel (240px):**
+- Team section: Agent list with status dots
+- Genes section: Active gene categories with color coding
+- "+ New" button for creating agents/tasks
 
-**Focal point:** Primary visual anchor is the chat input area (anchored by ambient glow during agent work). Secondary anchor is the latest message bubble.
+**Center Blackboard:**
+- Information cards showing current state
+- Status cards with key metrics
+- Quick action bar
+- Collapsible chat panel at bottom
 
-**Accessibility:** Icon-only buttons must have `aria-label` values:
-- Paperclip button: `aria-label="Attach file"`
-- Settings gear: `aria-label="Open settings"`
+**Design Principles (from DeskClaw):**
+- Focus on current work, not historical data
+- Clean information hierarchy
+- Color-coded gene categories
+- Contextual actions, not overwhelming menus
 
 ### Model Picker (Top Bar)
 

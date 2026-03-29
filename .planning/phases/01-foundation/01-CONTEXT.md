@@ -49,8 +49,19 @@ Establish secure Electron shell with OpenClaw SDK integration and basic single-a
 
 **Downstream agents MUST read these before planning or implementing.**
 
-No external specs — requirements fully captured in decisions above
+### Primary Design Reference
+- `/Volumes/S/Projects/paperclip/` — Paperclip GitHub repo, canonical reference for ClawHive's UI/UX. ClawHive is the desktop port of Paperclip's interaction model. Key files:
+  - `doc/spec/ui.md` — UI design spec (color system, typography, layout, sidebar)
+  - `doc/spec/agents-runtime.md` — Agent heartbeat, session resume, adapter patterns
+  - `packages/adapters/openclaw-gateway/` — OpenClaw Gateway WebSocket protocol
+  - `ui/src/components/Sidebar.tsx` — Sidebar with collapsible sections
+  - `ui/src/components/Layout.tsx` — Three-zone shell (sidebar + main + properties panel)
+  - `ui/src/components/OnboardingWizard.tsx` — First-launch wizard
 
+### OpenClaw Integration
+- `src/plugin-sdk/index.ts` — SDK entry point
+- `src/gateway/client.ts` — Gateway WebSocket client
+- `src/sessions/` — Session management patterns
 </canonical_refs>
 
 <code_context>

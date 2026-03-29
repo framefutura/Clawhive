@@ -1,0 +1,123 @@
+@import '@fontsource/manrope/400.css';
+@import '@fontsource/manrope/600.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode (UI-SPEC values) */
+    --background: 0 0% 98%; /* #FAFAFA */
+    --foreground: 240 10% 10%; /* #18181B */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 240 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+    --primary: 221 83% 53%; /* #2563EB */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 96%; /* #F4F4F5 */
+    --secondary-foreground: 240 10% 10%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%; /* #71717A */
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 90%; /* #E4E4E7 */
+    --input: 240 6% 90%;
+    --ring: 221 83% 53%;
+    --radius: 0.5rem;
+
+    /* DeskClaw Gene Category Colors - Light Mode */
+    --gene-dev: 160 84% 39%; /* #059669 */
+    --gene-data: 221 83% 53%; /* #2563EB */
+    --gene-ops: 32 95% 44%; /* #D97706 */
+    --gene-network: 263 70% 50%; /* #7C3AED */
+    --gene-creative: 330 81% 60%; /* #DB2777 */
+    --gene-comm: 189 94% 43%; /* #0891B2 */
+    --gene-security: 0 84% 50%; /* #DC2626 */
+    --gene-efficiency: 84 81% 44%; /* #65A30D */
+  }
+
+  .dark {
+    /* Dark mode (UI-SPEC values) */
+    --background: 0 0% 5%; /* #0D0D0D */
+    --foreground: 0 0% 98%; /* #FAFAFA */
+    --card: 0 0% 10%; /* #1A1A1A */
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%; /* #3B82F6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 16%; /* #27272A */
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%; /* #A1A1AA */
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 58%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 16%; /* #27272A */
+    --input: 240 4% 16%;
+    --ring: 217 91% 60%;
+
+    /* DeskClaw Gene Category Colors - Dark Mode */
+    --gene-dev: 160 84% 39%; /* #10B981 */
+    --gene-data: 217 91% 60%; /* #3B82F6 */
+    --gene-ops: 38 92% 50%; /* #F59E0B */
+    --gene-network: 263 70% 58%; /* #8B5CF6 */
+    --gene-creative: 333 71% 60%; /* #EC4899 */
+    --gene-comm: 187 94% 43%; /* #06B6D4 */
+    --gene-security: 0 84% 60%; /* #EF4444 */
+    --gene-efficiency: 81 79% 50%; /* #84CC16 */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+}
+
+/* DeskClaw Ambient Glow Effect */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 20px 2px hsl(var(--accent) / 0.5); }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Boundary Operable Panel Styles (DeskClaw-inspired) */
+.boundary-panel {
+  @apply border border-border rounded-lg bg-card;
+  @apply transition-all duration-200;
+}
+
+.boundary-panel:hover {
+  @apply border-primary/30;
+}
+
+.boundary-panel:focus-within {
+  @apply ring-2 ring-primary/20;
+}
+
+/* Gene Badge Styles */
+.gene-badge {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.gene-badge-dev { @apply bg-gene-dev/20 text-gene-dev; }
+.gene-badge-data { @apply bg-gene-data/20 text-gene-data; }
+.gene-badge-ops { @apply bg-gene-ops/20 text-gene-ops; }
+.gene-badge-network { @apply bg-gene-network/20 text-gene-network; }
+.gene-badge-creative { @apply bg-gene-creative/20 text-gene-creative; }
+.gene-badge-comm { @apply bg-gene-comm/20 text-gene-comm; }
+.gene-badge-security { @apply bg-gene-security/20 text-gene-security; }
+.gene-badge-efficiency { @apply bg-gene-efficiency/20 text-gene-efficiency; }

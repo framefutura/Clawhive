@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { TabRecord, TabType } from './common/tab.js'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
 const api = {
@@ -68,6 +69,25 @@ const api = {
     const listener = (_: Electron.IpcRendererEvent, theme: string) => callback(theme)
     ipcRenderer.on('theme:change', listener)
     return () => ipcRenderer.removeListener('theme:change', listener)
+  },
+
+  // Tabs
+  listTabs: () => ipcRenderer.invoke('tabs:list'),
+  createTab: (type: TabType, contentRef?: string, title?: string) =>
+    ipcRenderer.invoke('tabs:create', type, contentRef, title),
+  closeTab: (id: string) => ipcRenderer.invoke('tabs:close', id),
+  renameTab: (id: string, title: string) => ipcRenderer.invoke('tabs:rename', id, title),
+  updateTab: (id: string, updates: Partial<TabRecord>) =>
+    ipcRenderer.invoke('tabs:update', id, updates),
+  reorderTabs: (orderedIds: string[]) => ipcRenderer.invoke('tabs:reorder', orderedIds),
+  autoNameTab: (type: TabType, context: Record<string, unknown>) =>
+    ipcRenderer.invoke('tabs:autoName', type, context),
+  updateTabTitle: (id: string, title: string) =>
+    ipcRenderer.invoke('tabs:updateTitle', id, title),
+  onTabsChange: (callback: (tabs: TabRecord[]) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, tabs: TabRecord[]) => callback(tabs)
+    ipcRenderer.on('tabs:changed', listener)
+    return () => ipcRenderer.removeListener('tabs:changed', listener)
   },
 }
 

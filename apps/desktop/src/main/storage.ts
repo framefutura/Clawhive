@@ -111,6 +111,19 @@ function initSchema(database: typeof db) {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    -- Tab System Tables
+    CREATE TABLE IF NOT EXISTS tabs (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('chat', 'browser', 'file', 'workspace', 'settings')),
+      content_ref TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tabs_sort ON tabs(sort_order);
   `)
 }
 
@@ -385,4 +398,89 @@ export async function runMigrations(): Promise<void> {
   // if (currentVersion < 1) { ... }
 
   setConfig('schema_version', '1')
+}
+
+// Tab operations
+export interface DbTab {
+  id: string
+  title: string
+  type: string
+  content_ref: string
+  created_at: number
+  updated_at: number
+  sort_order: number
+}
+
+export function listTabs(): DbTab[] {
+  if (!db) throw new Error('Database not initialized')
+
+  const stmt = db.prepare('SELECT * FROM tabs ORDER BY sort_order ASC')
+  const results: DbTab[] = []
+
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbTab)
+  }
+  stmt.free()
+
+  return results
+}
+
+export function createTab(tab: Omit<DbTab, 'created_at' | 'updated_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+
+  const now = Date.now()
+  db.run(
+    'INSERT INTO tabs (id, title, type, content_ref, created_at, updated_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [tab.id, tab.title, tab.type, tab.content_ref, now, now, tab.sort_order]
+  )
+
+  saveDatabase().catch(console.error)
+}
+
+export function updateTab(id: string, updates: Partial<DbTab>): void {
+  if (!db) throw new Error('Database not initialized')
+
+  const fields: string[] = []
+  const values: (string | number | null)[] = []
+
+  if (updates.title !== undefined) {
+    fields.push('title = ?')
+    values.push(updates.title)
+  }
+  if (updates.type !== undefined) {
+    fields.push('type = ?')
+    values.push(updates.type)
+  }
+  if (updates.content_ref !== undefined) {
+    fields.push('content_ref = ?')
+    values.push(updates.content_ref)
+  }
+  if (updates.sort_order !== undefined) {
+    fields.push('sort_order = ?')
+    values.push(updates.sort_order)
+  }
+
+  fields.push('updated_at = ?')
+  values.push(Date.now())
+  values.push(id)
+
+  db.run(`UPDATE tabs SET ${fields.join(', ')} WHERE id = ?`, values)
+  saveDatabase().catch(console.error)
+}
+
+export function deleteTab(id: string): void {
+  if (!db) throw new Error('Database not initialized')
+
+  db.run('DELETE FROM tabs WHERE id = ?', [id])
+  saveDatabase().catch(console.error)
+}
+
+export function reorderTabs(orderedIds: string[]): void {
+  if (!db) throw new Error('Database not initialized')
+
+  orderedIds.forEach((id, index) => {
+    db!.run('UPDATE tabs SET sort_order = ?, updated_at = ? WHERE id = ?', [index, Date.now(), id])
+  })
+
+  saveDatabase().catch(console.error)
 }

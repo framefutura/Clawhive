@@ -20,6 +20,9 @@ import {
   getDataPath,
   type StorageConfig,
 } from './storage.js'
+import { tabDb } from './tabs.js'
+import { autoNameTab } from './tab-naming.js'
+import type { TabRecord, TabType } from './common/tab.js'
 import Store from 'electron-store'
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -253,6 +256,60 @@ ipcMain.handle('theme:set', (_, theme: 'dark' | 'light' | 'system') => {
   store.set('theme', theme)
   nativeTheme.themeSource = theme === 'system' ? 'system' : theme
   return theme
+})
+
+// Helper to broadcast tab changes to renderer
+function broadcastTabsChanged() {
+  const tabs = tabDb.listTabs()
+  mainWindow?.webContents.send('tabs:changed', tabs)
+}
+
+// IPC Handlers - Tabs
+ipcMain.handle('tabs:list', (): TabRecord[] => {
+  return tabDb.listTabs()
+})
+
+ipcMain.handle('tabs:create', (_, type: TabType, contentRef?: string, title?: string): TabRecord => {
+  const tab = tabDb.createTab({
+    title: title || autoNameTab(type),
+    type,
+    contentRef: contentRef || '',
+    sortOrder: tabDb.listTabs().length,
+  })
+  broadcastTabsChanged()
+  return tab
+})
+
+ipcMain.handle('tabs:close', (_, id: string): void => {
+  tabDb.closeTab(id)
+  broadcastTabsChanged()
+})
+
+ipcMain.handle('tabs:rename', (_, id: string, newTitle: string): TabRecord | null => {
+  const updated = tabDb.updateTab(id, { title: newTitle })
+  broadcastTabsChanged()
+  return updated
+})
+
+ipcMain.handle('tabs:update', (_, id: string, updates: Partial<TabRecord>): TabRecord | null => {
+  const updated = tabDb.updateTab(id, updates)
+  broadcastTabsChanged()
+  return updated
+})
+
+ipcMain.handle('tabs:reorder', (_, orderedIds: string[]): void => {
+  tabDb.reorderTabs(orderedIds)
+  broadcastTabsChanged()
+})
+
+ipcMain.handle('tabs:autoName', (_, type: TabType, context: Record<string, unknown>): string => {
+  return autoNameTab(type, context)
+})
+
+ipcMain.handle('tabs:updateTitle', (_, id: string, title: string): TabRecord | null => {
+  const updated = tabDb.updateTab(id, { title })
+  broadcastTabsChanged()
+  return updated
 })
 
 function createWindow() {

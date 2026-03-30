@@ -33,6 +33,8 @@ interface ModelPickerProps {
   selectedModel: string
   onProviderChange: (provider: Provider) => void
   onModelChange: (model: string) => void
+  detectedModels?: Record<Provider, string[] | undefined>
+  ollamaDetected?: boolean
 }
 
 export function ModelPicker({
@@ -40,9 +42,19 @@ export function ModelPicker({
   selectedModel,
   onProviderChange,
   onModelChange,
+  detectedModels,
+  ollamaDetected,
 }: ModelPickerProps) {
   const [open, setOpen] = useState(false)
   const provider = PROVIDER_CONFIG[selectedProvider]
+
+  // Use detected models if available, otherwise fall back to defaults
+  const getModelsForProvider = (prov: Provider): string[] => {
+    if (detectedModels?.[prov]) {
+      return detectedModels[prov]!
+    }
+    return DEFAULT_MODELS[prov]
+  }
 
   return (
     <div className="relative">
@@ -56,6 +68,12 @@ export function ModelPicker({
       >
         <Bot className="h-4 w-4" style={{ color: provider.color }} />
         <span className="font-medium">{provider.name}</span>
+        {ollamaDetected && selectedProvider === 'ollama' && (
+          <span className="flex items-center gap-1 text-xs text-green-600">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+            Local
+          </span>
+        )}
         <span className="text-muted-foreground">-</span>
         <span className="text-muted-foreground truncate max-w-[120px]">
           {selectedModel}
@@ -76,7 +94,7 @@ export function ModelPicker({
                   {PROVIDER_CONFIG[prov].name}
                 </div>
                 <div className="px-1 pb-1">
-                  {DEFAULT_MODELS[prov].map((model) => (
+                  {getModelsForProvider(prov).map((model) => (
                     <button
                       key={model}
                       onClick={() => {

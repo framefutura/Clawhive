@@ -1,9 +1,11 @@
-import { spawn, ChildProcess } from 'node:child_process'
+import { spawn, ChildProcess, execFile } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import WebSocket from 'ws'
+import { detectOllama, type OllamaStatus } from './ollama-detector.js'
 
 const GATEWAY_DEFAULT_PORT = 18792
 const GATEWAY_START_TIMEOUT = 15000
+const CLI_CHECK_TIMEOUT = 5000
 
 // Paperclip-inspired WebSocket protocol frame types
 export interface GatewayRequestFrame {
@@ -36,8 +38,20 @@ export interface GatewayConfig {
 }
 
 export interface GatewayEvent {
-  type: 'connected' | 'disconnected' | 'message' | 'error'
+  type: 'connected' | 'disconnected' | 'message' | 'error' | 'ollama-detected' | 'cli-missing'
   data?: unknown
+}
+
+export interface CLICheckResult {
+  available: boolean
+  version?: string
+}
+
+export interface GatewayState {
+  ollamaDetected: boolean
+  ollamaModels: string[]
+  cliAvailable: boolean
+  cliVersion?: string
 }
 
 /**
@@ -57,13 +71,79 @@ export class GatewayManager extends EventEmitter {
   private requestId = 0
   private pendingRequests = new Map<string, { resolve: (value: unknown) => void; reject: (reason: Error) => void }>()
 
+  // State tracking for Ollama and CLI
+  ollamaDetected = false
+  ollamaModels: string[] = []
+  cliAvailable = false
+  cliVersion?: string
+
   constructor(config: GatewayConfig = {}) {
     super()
     this.port = config.port ?? GATEWAY_DEFAULT_PORT
     this.authToken = config.authToken ?? ''
   }
 
+  /**
+   * Check if OpenClaw CLI is available via npx
+   */
+  async checkOpenClawCLI(): Promise<CLICheckResult> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve({ available: false })
+      }, CLI_CHECK_TIMEOUT)
+
+      execFile('npx', ['openclaw', '--version'], { timeout: CLI_CHECK_TIMEOUT }, (err, stdout) => {
+        clearTimeout(timeout)
+        if (err) {
+          resolve({ available: false })
+        } else {
+          const version = stdout.trim()
+          resolve({ available: true, version })
+        }
+      })
+    })
+  }
+
+  /**
+   * Get platform-specific install instructions for OpenClaw CLI
+   */
+  getInstallInstructions(): string {
+    const platform = process.platform
+    const baseInstructions = `OpenClaw CLI not found. Please install it:
+
+npm install -g openclaw
+
+Or ensure npx is available in your PATH.
+
+For more information, visit: https://github.com/openclaw/openclaw#installation`
+
+    if (platform === 'darwin') {
+      return `OpenClaw CLI not found. Please install it:
+
+npm install -g openclaw
+
+Or via Homebrew (if available):
+brew install openclaw
+
+Or ensure npx is available in your PATH.
+
+For more information, visit: https://github.com/openclaw/openclaw#installation`
+    }
+
+    return baseInstructions
+  }
+
   async start(): Promise<void> {
+    // Check CLI availability first
+    const cliCheck = await this.checkOpenClawCLI()
+    if (!cliCheck.available) {
+      const error = new Error(this.getInstallInstructions())
+      this.emit('event', { type: 'cli-missing', data: { message: error.message } } satisfies GatewayEvent)
+      throw error
+    }
+    this.cliAvailable = true
+    this.cliVersion = cliCheck.version
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Gateway failed to start within ${GATEWAY_START_TIMEOUT}ms`))
@@ -95,7 +175,32 @@ export class GatewayManager extends EventEmitter {
       this.process.stdout?.on('data', (data: Buffer) => {
         console.log('[Gateway stdout]', data.toString())
       })
+    }).then(async () => {
+      // After gateway starts, detect Ollama
+      await this.detectOllama()
     })
+  }
+
+  /**
+   * Detect Ollama and update state
+   */
+  private async detectOllama(): Promise<void> {
+    try {
+      const status = await detectOllama()
+      this.ollamaDetected = status.available
+      this.ollamaModels = status.models ?? []
+
+      if (status.available) {
+        this.emit('event', {
+          type: 'ollama-detected',
+          data: { models: status.models, baseUrl: status.baseUrl }
+        } satisfies GatewayEvent)
+      }
+    } catch {
+      // Silently fail - Ollama detection is optional
+      this.ollamaDetected = false
+      this.ollamaModels = []
+    }
   }
 
   private async connectWebSocket(): Promise<void> {

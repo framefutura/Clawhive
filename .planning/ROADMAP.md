@@ -33,8 +33,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: Project scaffolding — pnpm workspace, TypeScript config, Vite setup, Electron main process
-- [ ] 01-02: OpenClaw SDK integration — Agent runtime, skill loader, session manager, IPC bridge
+- [x] 01-01: Project scaffolding — pnpm workspace, TypeScript config, Vite setup, Electron main process
+- [x] 01-02: OpenClaw SDK integration — Agent runtime, skill loader, session manager, IPC bridge
 - [ ] 01-03: Core UI — React app with chat interface, model selector, file upload, dark/light mode
 - [ ] 01-04: Local storage — SQLite setup, encryption, session persistence, config management
 
@@ -112,7 +112,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Foundation | 1/4 | In Progress|  | - |
+| 1. Foundation | 2/4 | In Progress|  | - |
 | 2. Security Core | v1.0 | 0/3 | Not started | - |
 | 3. Multi-Agent Core | v1.0 | 0/4 | Not started | - |
 | 4. Advanced Features | v1.0 | 0/4 | Not started | - |

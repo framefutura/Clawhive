@@ -12,12 +12,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FND-01**: User can install app via DMG to any location (portable install)
 - [x] **FND-02**: App launches with secure Electron shell (contextIsolation, sandbox enabled)
 - [ ] **FND-03**: User can select custom data storage path on first launch
-- [ ] **FND-04**: User can chat with a single AI agent through React-based chat interface
-- [ ] **FND-05**: User can select model from multiple providers (Anthropic, OpenAI, Ollama)
+- [x] **FND-04**: User can chat with a single AI agent through React-based chat interface
+- [x] **FND-05**: User can select model from multiple providers (Anthropic, OpenAI, Ollama)
 - [ ] **FND-06**: User can upload files and images to chat (drag-drop, clipboard, file picker)
 - [ ] **FND-07**: Chat history persists locally in encrypted SQLite database
 - [ ] **FND-08**: User can toggle between dark and light mode (system-aware default)
-- [ ] **FND-09**: App displays ambient visual feedback (glow/pulse) during agent work
+- [x] **FND-09**: App displays ambient visual feedback (glow/pulse) during agent work
 - [x] **FND-10**: IPC bridge established between Electron main process and renderer
 
 ### Security Core (Phase 2)
@@ -125,12 +125,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FND-01 | Phase 1 | Complete |
 | FND-02 | Phase 1 | Complete |
 | FND-03 | Phase 1 | Pending |
-| FND-04 | Phase 1 | Pending |
-| FND-05 | Phase 1 | Pending |
+| FND-04 | Phase 1 | Complete |
+| FND-05 | Phase 1 | Complete |
 | FND-06 | Phase 1 | Pending |
 | FND-07 | Phase 1 | Pending |
 | FND-08 | Phase 1 | Pending |
-| FND-09 | Phase 1 | Pending |
+| FND-09 | Phase 1 | Complete |
 | FND-10 | Phase 1 | Complete |
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 2 | Pending |

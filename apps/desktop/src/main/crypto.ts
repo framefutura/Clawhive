@@ -25,10 +25,7 @@ export function getEncryptionKey(): string {
 export function encryptData(data: Uint8Array): string {
   const key = getEncryptionKey()
   const wordArray = CryptoJS.lib.WordArray.create(data as unknown as number[])
-  const encrypted = CryptoJS.AES.encrypt(wordArray, key, {
-    mode: CryptoJS.mode.GCM,
-    padding: CryptoJS.pad.Pkcs7,
-  })
+  const encrypted = CryptoJS.AES.encrypt(wordArray, key)
   return encrypted.toString()
 }
 
@@ -37,10 +34,7 @@ export function encryptData(data: Uint8Array): string {
  */
 export function decryptData(encryptedData: string): Uint8Array {
   const key = getEncryptionKey()
-  const decrypted = CryptoJS.AES.decrypt(encryptedData, key, {
-    mode: CryptoJS.mode.GCM,
-    padding: CryptoJS.pad.Pkcs7,
-  })
+  const decrypted = CryptoJS.AES.decrypt(encryptedData, key)
 
   // Convert WordArray to Uint8Array
   const words = decrypted.words

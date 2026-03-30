@@ -23,10 +23,16 @@ async function initSQL() {
     SQL = await initSqlJs({
       locateFile: (file: string) => {
         // sql.js WASM file location in Electron
-        if (app.isPackaged) {
+        if (typeof app !== 'undefined' && app.isPackaged) {
           return path.join(process.resourcesPath, file)
         }
-        return file
+        // In development/test, resolve from sql.js package
+        try {
+          const sqlJsPath = require.resolve('sql.js')
+          return path.join(path.dirname(sqlJsPath), '..', 'dist', file)
+        } catch {
+          return file
+        }
       }
     })
   }

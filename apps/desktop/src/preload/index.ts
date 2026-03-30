@@ -112,6 +112,48 @@ const api = {
   renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('files:rename', oldPath, newPath),
   openFileExternal: (filePath: string) => ipcRenderer.invoke('files:openExternal', filePath),
   listCreatableFormats: () => ipcRenderer.invoke('files:listCreatableFormats'),
+
+  // Browser
+  browserCreate: (tabId: string, url?: string) =>
+    ipcRenderer.invoke('browser:create', tabId, url),
+  browserDestroy: (tabId: string) =>
+    ipcRenderer.invoke('browser:destroy', tabId),
+  browserNavigate: (tabId: string, url: string) =>
+    ipcRenderer.invoke('browser:navigate', tabId, url),
+  browserGoBack: (tabId: string) =>
+    ipcRenderer.invoke('browser:goBack', tabId),
+  browserGoForward: (tabId: string) =>
+    ipcRenderer.invoke('browser:goForward', tabId),
+  browserReload: (tabId: string) =>
+    ipcRenderer.invoke('browser:reload', tabId),
+  browserSetVisible: (tabId: string, visible: boolean) =>
+    ipcRenderer.invoke('browser:setVisible', tabId, visible),
+  browserCaptureText: (tabId: string) =>
+    ipcRenderer.invoke('browser:captureText', tabId),
+  browserCaptureScreenshot: (tabId: string) =>
+    ipcRenderer.invoke('browser:captureScreenshot', tabId),
+  browserCanGoBack: (tabId: string) =>
+    ipcRenderer.invoke('browser:canGoBack', tabId),
+  browserCanGoForward: (tabId: string) =>
+    ipcRenderer.invoke('browser:canGoForward', tabId),
+  onBrowserTitleChanged: (callback: (event: { tabId: string; title: string }) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, data: { tabId: string; title: string }) => callback(data)
+    ipcRenderer.on('browser:titleChanged', listener)
+    return () => ipcRenderer.removeListener('browser:titleChanged', listener)
+  },
+  onBrowserUrlChanged: (callback: (event: { tabId: string; url: string }) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, data: { tabId: string; url: string }) => callback(data)
+    ipcRenderer.on('browser:urlChanged', listener)
+    return () => ipcRenderer.removeListener('browser:urlChanged', listener)
+  },
+
+  // Automation (Playwright)
+  automationScrape: (url: string) =>
+    ipcRenderer.invoke('automation:scrape', url),
+  automationScreenshot: (url: string, selector?: string) =>
+    ipcRenderer.invoke('automation:screenshot', url, selector),
+  automationRun: (url: string, actions: unknown[]) =>
+    ipcRenderer.invoke('automation:run', url, actions),
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

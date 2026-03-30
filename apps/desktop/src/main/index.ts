@@ -512,8 +512,18 @@ ipcMain.handle('automation:run', async (_, url: string, actions: unknown[]) => {
     show: false,
   })
 
+  // Initialize BrowserManager
+  browserManager = new BrowserManager(mainWindow)
+
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+  })
+
+  // Clean up browser views when window closes
+  mainWindow.on('closed', () => {
+    browserManager?.destroyAll()
+    browserManager = null
+    mainWindow = null
   })
 
   if (isDev) {

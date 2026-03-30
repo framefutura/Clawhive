@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { TopBar } from './components/TopBar'
 import { TabBar } from './components/TabBar'
 import { Sidebar } from './components/Sidebar'
 import { Blackboard } from './components/Blackboard'
-import { TopologyGraph, createMockTopology } from './components/TopologyGraph'
 import { ChatView } from './components/ChatView'
 import { Settings } from './components/Settings'
 import { FirstLaunchWizard } from './components/FirstLaunchWizard'
 import { FileManager } from './components/FileManager'
+import { BrowserToolbar } from './components/BrowserToolbar'
 import { FileUpload, useClipboardPaste } from './components/FileUpload'
 import { useChatStore } from './stores/chatStore'
 import { useTabStore } from './stores/tabStore'
@@ -92,6 +92,18 @@ export default function App() {
   // UI state
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+
+  // Browser state
+  const [browserUrls, setBrowserUrls] = useState<Record<string, string>>({})
+  const [browserCanGoBack, setBrowserCanGoBack] = useState<Record<string, boolean>>({})
+  const [browserCanGoForward, setBrowserCanGoForward] = useState<Record<string, boolean>>({})
+  const [capturedText, setCapturedText] = useState<string | null>(null)
+  const [capturedScreenshot, setCapturedScreenshot] = useState<string | null>(null)
+  const [showCaptureModal, setShowCaptureModal] = useState(false)
+
+  // Track browser tabs that have been initialized
+  const browserTabsInitialized = useRef<Set<string>>(new Set())
+  const previousActiveTabId = useRef<string | null>(null)
 
   // Check for first launch
   useEffect(() => {
@@ -237,7 +249,100 @@ export default function App() {
     }
   }, [messages, activeTab])
 
-  // Handle creating a new workspace tab
+  // Initialize browser view when browser tab becomes active
+  useEffect(() => {
+    const initBrowserTab = async () => {
+      if (!activeTab) return
+
+      // Hide previous browser tab if it was a browser
+      if (previousActiveTabId.current && previousActiveTabId.current !== activeTab.id) {
+        const prevTab = tabs.find(t => t.id === previousActiveTabId.current)
+        if (prevTab?.type === 'browser') {
+          await window.clawhive.browserSetVisible(prevTab.id, false)
+        }
+      }
+
+      // Handle current active tab
+      if (activeTab.type === 'browser') {
+        // Create browser view if not already initialized
+        if (!browserTabsInitialized.current.has(activeTab.id)) {
+          const initialUrl = activeTab.contentRef || 'https://google.com'
+          await window.clawhive.browserCreate(activeTab.id, initialUrl)
+          browserTabsInitialized.current.add(activeTab.id)
+          // Initialize URL state
+          setBrowserUrls(prev => ({ ...prev, [activeTab.id]: initialUrl }))
+        }
+        // Show the browser view
+        await window.clawhive.browserSetVisible(activeTab.id, true)
+        // Update navigation state
+        const canBack = await window.clawhive.browserCanGoBack(activeTab.id)
+        const canForward = await window.clawhive.browserCanGoForward(activeTab.id)
+        setBrowserCanGoBack(prev => ({ ...prev, [activeTab.id]: canBack }))
+        setBrowserCanGoForward(prev => ({ ...prev, [activeTab.id]: canForward }))
+      }
+
+      previousActiveTabId.current = activeTab.id
+    }
+
+    initBrowserTab()
+  }, [activeTab, tabs])
+
+  // Listen for browser title changes and update tab title
+  useEffect(() => {
+    const cleanup = window.clawhive.onBrowserTitleChanged((event) => {
+      const tab = tabs.find(t => t.id === event.tabId)
+      if (tab && tab.type === 'browser') {
+        // Update tab title with page title (truncated if needed)
+        const title = event.title.length > 30 ? event.title.slice(0, 30) + '...' : event.title
+        window.clawhive.renameTab(tab.id, title)
+      }
+    })
+    return cleanup
+  }, [tabs])
+
+  // Listen for browser URL changes
+  useEffect(() => {
+    const cleanup = window.clawhive.onBrowserUrlChanged((event) => {
+      setBrowserUrls(prev => ({ ...prev, [event.tabId]: event.url }))
+      // Update navigation state
+      window.clawhive.browserCanGoBack(event.tabId).then(can => {
+        setBrowserCanGoBack(prev => ({ ...prev, [event.tabId]: can }))
+      })
+      window.clawhive.browserCanGoForward(event.tabId).then(can => {
+        setBrowserCanGoForward(prev => ({ ...prev, [event.tabId]: can }))
+      })
+    })
+    return cleanup
+  }, [])
+
+  // Clean up browser views when tabs are closed
+  useEffect(() => {
+    const currentTabIds = new Set(tabs.map(t => t.id))
+    for (const tabId of browserTabsInitialized.current) {
+      if (!currentTabIds.has(tabId)) {
+        // Tab was closed, destroy its browser view
+        window.clawhive.browserDestroy(tabId)
+        browserTabsInitialized.current.delete(tabId)
+        // Clean up state
+        setBrowserUrls(prev => {
+          const next = { ...prev }
+          delete next[tabId]
+          return next
+        })
+      }
+    }
+  }, [tabs])
+
+  // Clean up all browser views on unmount
+  useEffect(() => {
+    return () => {
+      for (const tabId of browserTabsInitialized.current) {
+        window.clawhive.browserDestroy(tabId)
+      }
+      browserTabsInitialized.current.clear()
+    }
+  }, [])
+
   const handleAddWorkspaceTab = useCallback(async () => {
     const newWorkspace = await createWorkspace()
     await createTab('workspace', '', newWorkspace.name, newWorkspace.id)
@@ -367,8 +472,34 @@ export default function App() {
                   onStoragePathChange={setStoragePath}
                 />
               ) : activeTab.type === 'browser' ? (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  Browser tab - coming in phase 02-04
+                <div className="flex-1 flex flex-col">
+                  {/* Browser Toolbar */}
+                  <BrowserToolbar
+                    url={browserUrls[activeTab.id] || activeTab.contentRef || 'https://google.com'}
+                    canGoBack={browserCanGoBack[activeTab.id] || false}
+                    canGoForward={browserCanGoForward[activeTab.id] || false}
+                    onNavigate={(url) => {
+                      window.clawhive.browserNavigate(activeTab.id, url)
+                      // Update tab's contentRef to track the URL
+                      window.clawhive.updateTab(activeTab.id, { contentRef: url })
+                      setBrowserUrls(prev => ({ ...prev, [activeTab.id]: url }))
+                    }}
+                    onGoBack={() => window.clawhive.browserGoBack(activeTab.id)}
+                    onGoForward={() => window.clawhive.browserGoForward(activeTab.id)}
+                    onReload={() => window.clawhive.browserReload(activeTab.id)}
+                    onCaptureText={async () => {
+                      const text = await window.clawhive.browserCaptureText(activeTab.id)
+                      setCapturedText(text)
+                      setShowCaptureModal(true)
+                    }}
+                    onCaptureScreenshot={async () => {
+                      const dataUrl = await window.clawhive.browserCaptureScreenshot(activeTab.id)
+                      setCapturedScreenshot(dataUrl)
+                      setShowCaptureModal(true)
+                    }}
+                  />
+                  {/* BrowserView placeholder - actual content rendered by main process */}
+                  <div className="flex-1 bg-background" />
                 </div>
               ) : activeTab.type === 'file' ? (
                 activeWorkspace ? (
@@ -419,6 +550,54 @@ export default function App() {
           onStoragePathChange={setStoragePath}
         />
       </div>
+
+      {/* Capture Results Modal */}
+      {showCaptureModal && (capturedText || capturedScreenshot) && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg shadow-lg max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-medium">
+                {capturedText ? 'Captured Text' : 'Screenshot'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCaptureModal(false)
+                  setCapturedText(null)
+                  setCapturedScreenshot(null)
+                }}
+                className="p-1 hover:bg-muted rounded"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex-1">
+              {capturedText && (
+                <pre className="text-sm whitespace-pre-wrap font-mono bg-muted p-4 rounded">
+                  {capturedText}
+                </pre>
+              )}
+              {capturedScreenshot && (
+                <img
+                  src={capturedScreenshot}
+                  alt="Screenshot"
+                  className="max-w-full rounded border"
+                />
+              )}
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  const content = capturedText || capturedScreenshot || ''
+                  navigator.clipboard.writeText(content)
+                }}
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              >
+                Copy to Clipboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

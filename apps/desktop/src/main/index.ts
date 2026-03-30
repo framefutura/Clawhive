@@ -1,11 +1,107 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
 import path from 'node:path'
 import { GatewayManager } from './gateway.js'
 import { sessionStore, DEFAULT_GENES, type ModelConfig, type Gene, type GeneCategory } from './session.js'
+import {
+  loadDatabase,
+  saveDatabase,
+  closeDatabase,
+  createSession,
+  getSessions,
+  deleteSession,
+  addMessage,
+  getMessages,
+  createAgent,
+  getAgents,
+  loadGene,
+  getAgentGenes,
+  getConfig as getDbConfig,
+  setConfig as setDbConfig,
+  getDataPath,
+  type StorageConfig,
+} from './storage.js'
+import Store from 'electron-store'
 
 const isDev = process.env.NODE_ENV === 'development'
 let mainWindow: BrowserWindow | null = null
 let gatewayManager: GatewayManager | null = null
+
+// Config store for non-encrypted settings
+const store = new Store<{
+  dataPath: string | null
+  theme: 'dark' | 'light' | 'system'
+  firstLaunchComplete: boolean
+}>({
+  defaults: {
+    dataPath: null,
+    theme: 'system',
+    firstLaunchComplete: false,
+  }
+})
+
+// Initialize database on startup
+async function initStorage() {
+  const dataPath = store.get('dataPath')
+  if (!dataPath) {
+    // First launch - will show wizard
+    return false
+  }
+
+  await loadDatabase({ dataPath })
+
+  // Load sessions from database into memory
+  const dbSessions = getSessions()
+  for (const s of dbSessions) {
+    sessionStore.create(s.agent_id, {
+      provider: s.provider as ModelConfig['provider'],
+      model: s.model,
+    })
+  }
+
+  return true
+}
+
+// IPC Handlers - Storage
+ipcMain.handle('storage:getPath', () => {
+  return getDataPath()
+})
+
+ipcMain.handle('storage:selectDirectory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openDirectory', 'createDirectory'],
+    title: 'Select Data Storage Location',
+    message: 'Choose where ClawHive will store your encrypted data',
+  })
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0]
+  }
+  return null
+})
+
+ipcMain.handle('storage:setPath', async (_, newPath: string) => {
+  // Close current database if open
+  closeDatabase()
+
+  // Open at new location
+  await loadDatabase({ dataPath: newPath })
+  store.set('dataPath', newPath)
+
+  return newPath
+})
+
+// IPC Handlers - First Launch
+ipcMain.handle('firstLaunch:check', () => {
+  return {
+    complete: store.get('firstLaunchComplete'),
+    hasDataPath: !!store.get('dataPath'),
+  }
+})
+
+ipcMain.handle('firstLaunch:complete', () => {
+  store.set('firstLaunchComplete', true)
+  return true
+})
 
 // IPC Handlers - Gateway
 ipcMain.handle('gateway:connect', async (_, gatewayUrl: string) => {
@@ -22,9 +118,19 @@ ipcMain.handle('gateway:disconnect', () => {
   gatewayManager = null
 })
 
-// IPC Handlers - Session
+// IPC Handlers - Session (now backed by database)
 ipcMain.handle('session:create', (_, agentId: string, modelConfig: ModelConfig, genes?: string[]) => {
-  return sessionStore.create(agentId, modelConfig, genes)
+  const session = sessionStore.create(agentId, modelConfig, genes)
+
+  // Also save to database
+  createSession({
+    id: session.id,
+    agent_id: agentId,
+    provider: modelConfig.provider,
+    model: modelConfig.model,
+  })
+
+  return session
 })
 
 ipcMain.handle('session:list', () => {
@@ -33,22 +139,30 @@ ipcMain.handle('session:list', () => {
 
 ipcMain.handle('session:delete', (_, sessionId: string) => {
   sessionStore.delete(sessionId)
+  deleteSession(sessionId)
 })
 
-// IPC Handlers - Chat (Paperclip heartbeat-run model)
+// IPC Handlers - Chat (persist messages)
 ipcMain.handle('chat:send', async (_, sessionId: string, content: string) => {
-  const session = sessionStore.get(sessionId)
-  if (!session) throw new Error('Session not found')
-
-  // Add user message
+  // Add user message to memory and database
   sessionStore.addMessage(sessionId, { role: 'user', content })
+  addMessage({
+    id: crypto.randomUUID(),
+    session_id: sessionId,
+    role: 'user',
+    content,
+    timestamp: Date.now(),
+  })
 
-  // Send to gateway using heartbeat-run (Paperclip pattern with DeskClaw genes)
+  // Send to gateway for streaming response
   if (gatewayManager) {
-    await gatewayManager.heartbeatRun(sessionId, content, session.genes)
+    const session = sessionStore.get(sessionId)
+    if (session) {
+      await gatewayManager.heartbeatRun(sessionId, content, session.genes)
+    }
   }
 
-  // Emit event that agent is working (for glow effect)
+  // Emit event that agent is working
   mainWindow?.webContents.send('chat:working', { sessionId })
 })
 
@@ -72,6 +186,73 @@ ipcMain.handle('genes:categories', (): { id: GeneCategory; name: string; color: 
     { id: 'security', name: 'Security', color: '#EF4444' },
     { id: 'efficiency', name: 'Efficiency', color: '#84CC16' },
   ]
+})
+
+// IPC Handlers - Agents
+ipcMain.handle('agent:create', (_, agent: {
+  name: string
+  role: string
+  provider: string
+  model: string
+  apiKey?: string
+  genes?: string[]
+}) => {
+  const id = crypto.randomUUID()
+  createAgent({
+    id,
+    name: agent.name,
+    role: agent.role,
+    provider: agent.provider,
+    model: agent.model,
+    api_key: agent.apiKey,
+  })
+
+  // Load genes if provided
+  if (agent.genes) {
+    for (const geneId of agent.genes) {
+      loadGene(id, geneId)
+    }
+  }
+
+  return { id, ...agent }
+})
+
+ipcMain.handle('agent:list', () => {
+  return getAgents()
+})
+
+ipcMain.handle('agent:genes', (_, agentId: string) => {
+  return getAgentGenes(agentId)
+})
+
+// IPC Handlers - Config (persist to both store and database)
+ipcMain.handle('config:get', () => {
+  return {
+    dataPath: store.get('dataPath'),
+    theme: store.get('theme'),
+    firstLaunchComplete: store.get('firstLaunchComplete'),
+  }
+})
+
+ipcMain.handle('config:set', (_, config: Record<string, unknown>) => {
+  if (config.theme) store.set('theme', config.theme as 'dark' | 'light' | 'system')
+  if (config.dataPath) store.set('dataPath', config.dataPath as string)
+  if (config.firstLaunchComplete !== undefined) {
+    store.set('firstLaunchComplete', config.firstLaunchComplete as boolean)
+  }
+
+  return true
+})
+
+// IPC Handlers - Theme
+ipcMain.handle('theme:get', () => {
+  return store.get('theme')
+})
+
+ipcMain.handle('theme:set', (_, theme: 'dark' | 'light' | 'system') => {
+  store.set('theme', theme)
+  nativeTheme.themeSource = theme === 'system' ? 'system' : theme
+  return theme
 })
 
 function createWindow() {
@@ -101,13 +282,23 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow)
+// Initialize storage before creating window
+app.on('ready', async () => {
+  await initStorage()
+  createWindow()
+})
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   gatewayManager?.stop()
+  closeDatabase()
   if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
+})
+
+// Save database before quit
+app.on('before-quit', async () => {
+  await saveDatabase().catch(() => {})
 })

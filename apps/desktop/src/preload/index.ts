@@ -1,9 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
-// Following Paperclip's Gateway adapter pattern for WebSocket-like communication
 const api = {
-  // Gateway connection (Paperclip-inspired WebSocket pattern)
+  // Gateway connection
   connect: (gatewayUrl: string) => ipcRenderer.invoke('gateway:connect', gatewayUrl),
   disconnect: () => ipcRenderer.invoke('gateway:disconnect'),
   onGatewayEvent: (callback: (event: unknown) => void) => {
@@ -36,6 +35,22 @@ const api = {
   getGenes: () => ipcRenderer.invoke('genes:list'),
   getGenesByCategory: (category: string) => ipcRenderer.invoke('genes:byCategory', category),
   getGeneCategories: () => ipcRenderer.invoke('genes:categories'),
+
+  // Agents
+  createAgent: (agent: {
+    name: string
+    role: string
+    provider: string
+    model: string
+    apiKey?: string
+    genes?: string[]
+  }) => ipcRenderer.invoke('agent:create', agent),
+  getAgents: () => ipcRenderer.invoke('agent:list'),
+  getAgentGenes: (agentId: string) => ipcRenderer.invoke('agent:genes', agentId),
+
+  // First Launch
+  checkFirstLaunch: () => ipcRenderer.invoke('firstLaunch:check'),
+  completeFirstLaunch: () => ipcRenderer.invoke('firstLaunch:complete'),
 
   // Storage
   getStoragePath: () => ipcRenderer.invoke('storage:getPath'),

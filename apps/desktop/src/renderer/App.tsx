@@ -8,6 +8,7 @@ import { TopologyGraph, createMockTopology } from './components/TopologyGraph'
 import { ChatView } from './components/ChatView'
 import { Settings } from './components/Settings'
 import { FirstLaunchWizard } from './components/FirstLaunchWizard'
+import { FileManager } from './components/FileManager'
 import { FileUpload, useClipboardPaste } from './components/FileUpload'
 import { useChatStore } from './stores/chatStore'
 import { useTabStore } from './stores/tabStore'
@@ -297,6 +298,11 @@ export default function App() {
               onAddTab={(type?: TabType) => {
                 if (type === 'workspace') {
                   handleAddWorkspaceTab()
+                } else if (type === 'file') {
+                  // Create a file tab with the current workspace
+                  if (activeWorkspace) {
+                    createTab('file', '', 'Files', activeWorkspace.id)
+                  }
                 } else if (type) {
                   createTab(type)
                 } else {
@@ -365,9 +371,21 @@ export default function App() {
                   Browser tab - coming in phase 02-04
                 </div>
               ) : activeTab.type === 'file' ? (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  File tab - coming in phase 02-03
-                </div>
+                activeWorkspace ? (
+                  <FileManager
+                    workspaceId={activeWorkspace.id}
+                    rootPath={`${storagePath}/workspaces/${activeWorkspace.id}`}
+                    selectedFile={activeTab.contentRef}
+                    onSelectFile={(filePath) => {
+                      // Update the tab's contentRef to the selected file
+                      window.clawhive.updateTab(activeTab.id, { contentRef: filePath })
+                    }}
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    No workspace selected for file manager
+                  </div>
+                )
               ) : null
             ) : (
               // No tabs open - show default workspace

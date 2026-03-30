@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell } from 'electron'
 import path from 'node:path'
+import fs from 'node:fs/promises'
 import { GatewayManager } from './gateway.js'
 import { sessionStore, DEFAULT_GENES, type ModelConfig, type Gene, type GeneCategory } from './session.js'
 import {
@@ -23,6 +24,13 @@ import {
 import { tabDb } from './tabs.js'
 import { workspaceDb } from './workspaces.js'
 import { autoNameTab } from './tab-naming.js'
+import { formatRegistry } from './format-registry.js'
+import { markdownPlugin } from './formats/markdown.js'
+import { pdfPlugin } from './formats/pdf.js'
+import { docxPlugin } from './formats/docx.js'
+import { xlsxPlugin } from './formats/xlsx.js'
+import { BrowserManager } from './browser-manager.js'
+import { PlaywrightBridge } from './playwright-bridge.js'
 import type { TabRecord, TabType } from './common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
 import Store from 'electron-store'
@@ -30,6 +38,8 @@ import Store from 'electron-store'
 const isDev = process.env.NODE_ENV === 'development'
 let mainWindow: BrowserWindow | null = null
 let gatewayManager: GatewayManager | null = null
+let browserManager: BrowserManager | null = null
+let playwrightBridge: PlaywrightBridge | null = null
 
 // Config store for non-encrypted settings
 const store = new Store<{
@@ -65,6 +75,12 @@ async function initStorage() {
       model: s.model,
     })
   }
+
+  // Register format plugins
+  formatRegistry.register(markdownPlugin)
+  formatRegistry.register(pdfPlugin)
+  formatRegistry.register(docxPlugin)
+  formatRegistry.register(xlsxPlugin)
 
   return true
 }
@@ -350,7 +366,137 @@ ipcMain.handle('workspaces:get', (_, id: string): WorkspaceRecord | null => {
   return workspaceDb.get(id)
 })
 
-function createWindow() {
+// IPC Handlers - File System
+ipcMain.handle('files:list', async (_, dirPath: string) => {
+  return formatRegistry.buildFileTree(dirPath)
+})
+
+ipcMain.handle('files:create', async (_, filePath: string, formatId: string) => {
+  const plugin = formatRegistry.getPlugin(formatId)
+  if (!plugin || !plugin.create) {
+    throw new Error(`Format plugin ${formatId} not found or cannot create files`)
+  }
+  await plugin.create(filePath)
+  return true
+})
+
+ipcMain.handle('files:read', async (_, filePath: string) => {
+  const plugin = formatRegistry.resolveByPath(filePath)
+  if (!plugin || !plugin.read) {
+    throw new Error(`No plugin found for file: ${filePath}`)
+  }
+  return plugin.read(filePath)
+})
+
+ipcMain.handle('files:delete', async (_, filePath: string) => {
+  await fs.unlink(filePath)
+  return true
+})
+
+ipcMain.handle('files:rename', async (_, oldPath: string, newPath: string) => {
+  await fs.rename(oldPath, newPath)
+  return true
+})
+
+ipcMain.handle('files:openExternal', async (_, filePath: string) => {
+  await shell.openPath(filePath)
+  return true
+})
+
+ipcMain.handle('files:listCreatableFormats', () => {
+  return formatRegistry.listCreatable().map(p => ({
+    id: p.id,
+    name: p.name,
+    extensions: p.extensions,
+  }))
+})
+
+// IPC Handlers - Browser
+ipcMain.handle('browser:create', (_, tabId: string, url?: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  browserManager.createTab(tabId, url)
+  return true
+})
+
+ipcMain.handle('browser:destroy', (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  browserManager.destroyTab(tabId)
+  return true
+})
+
+ipcMain.handle('browser:navigate', (_, tabId: string, url: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  browserManager.navigate(tabId, url)
+  return true
+})
+
+ipcMain.handle('browser:goBack', (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  browserManager.goBack(tabId)
+  return true
+})
+
+ipcMain.handle('browser:goForward', (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  browserManager.goForward(tabId)
+  return true
+})
+
+ipcMain.handle('browser:reload', (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  browserManager.reload(tabId)
+  return true
+})
+
+ipcMain.handle('browser:setVisible', (_, tabId: string, visible: boolean) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  browserManager.setVisible(tabId, visible)
+  return true
+})
+
+ipcMain.handle('browser:captureText', async (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  return browserManager.capturePageText(tabId)
+})
+
+ipcMain.handle('browser:captureScreenshot', async (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  const buffer = await browserManager.captureScreenshot(tabId)
+  return `data:image/png;base64,${buffer.toString('base64')}`
+})
+
+ipcMain.handle('browser:canGoBack', (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  return browserManager.canGoBack(tabId)
+})
+
+ipcMain.handle('browser:canGoForward', (_, tabId: string) => {
+  if (!browserManager) throw new Error('BrowserManager not initialized')
+  return browserManager.canGoForward(tabId)
+})
+
+// IPC Handlers - Automation (Playwright)
+ipcMain.handle('automation:scrape', async (_, url: string) => {
+  if (!playwrightBridge) {
+    playwrightBridge = new PlaywrightBridge()
+  }
+  return playwrightBridge.scrapePage(url)
+})
+
+ipcMain.handle('automation:screenshot', async (_, url: string, selector?: string) => {
+  if (!playwrightBridge) {
+    playwrightBridge = new PlaywrightBridge()
+  }
+  const buffer = await playwrightBridge.screenshot(url, selector)
+  return `data:image/png;base64,${buffer.toString('base64')}`
+})
+
+ipcMain.handle('automation:run', async (_, url: string, actions: unknown[]) => {
+  if (!playwrightBridge) {
+    playwrightBridge = new PlaywrightBridge()
+  }
+  return playwrightBridge.runAutomation(url, actions as Parameters<PlaywrightBridge['runAutomation']>[1])
+})
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,

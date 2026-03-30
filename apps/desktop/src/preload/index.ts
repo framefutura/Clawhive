@@ -103,6 +103,15 @@ const api = {
     ipcRenderer.on('workspaces:changed', listener)
     return () => ipcRenderer.removeListener('workspaces:changed', listener)
   },
+
+  // Files
+  listFiles: (dirPath: string) => ipcRenderer.invoke('files:list', dirPath),
+  createFile: (filePath: string, formatId: string) => ipcRenderer.invoke('files:create', filePath, formatId),
+  readFile: (filePath: string) => ipcRenderer.invoke('files:read', filePath),
+  deleteFile: (filePath: string) => ipcRenderer.invoke('files:delete', filePath),
+  renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('files:rename', oldPath, newPath),
+  openFileExternal: (filePath: string) => ipcRenderer.invoke('files:openExternal', filePath),
+  listCreatableFormats: () => ipcRenderer.invoke('files:listCreatableFormats'),
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

@@ -27,10 +27,15 @@ const api = {
   },
 
   // Session
-  createSession: (agentId: string, modelConfig: unknown) =>
-    ipcRenderer.invoke('session:create', agentId, modelConfig),
+  createSession: (agentId: string, modelConfig: unknown, genes?: string[]) =>
+    ipcRenderer.invoke('session:create', agentId, modelConfig, genes),
   getSessions: () => ipcRenderer.invoke('session:list'),
   deleteSession: (sessionId: string) => ipcRenderer.invoke('session:delete', sessionId),
+
+  // Genes (DeskClaw gene system)
+  getGenes: () => ipcRenderer.invoke('genes:list'),
+  getGenesByCategory: (category: string) => ipcRenderer.invoke('genes:byCategory', category),
+  getGeneCategories: () => ipcRenderer.invoke('genes:categories'),
 
   // Storage
   getStoragePath: () => ipcRenderer.invoke('storage:getPath'),

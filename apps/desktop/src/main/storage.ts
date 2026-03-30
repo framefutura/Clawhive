@@ -118,12 +118,27 @@ function initSchema(database: typeof db) {
       title TEXT NOT NULL,
       type TEXT NOT NULL CHECK(type IN ('chat', 'browser', 'file', 'workspace', 'settings')),
       content_ref TEXT,
+      workspace_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       sort_order INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_tabs_sort ON tabs(sort_order);
+    CREATE INDEX IF NOT EXISTS idx_tabs_workspace ON tabs(workspace_id);
+
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      active_task TEXT,
+      agent_status TEXT NOT NULL DEFAULT 'idle',
+      active_genes TEXT NOT NULL DEFAULT '[]',
+      gene_score REAL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_workspaces_name ON workspaces(name);
   `)
 }
 
@@ -406,6 +421,7 @@ export interface DbTab {
   title: string
   type: string
   content_ref: string
+  workspace_id: string | null
   created_at: number
   updated_at: number
   sort_order: number
@@ -430,8 +446,8 @@ export function createTab(tab: Omit<DbTab, 'created_at' | 'updated_at'>): void {
 
   const now = Date.now()
   db.run(
-    'INSERT INTO tabs (id, title, type, content_ref, created_at, updated_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [tab.id, tab.title, tab.type, tab.content_ref, now, now, tab.sort_order]
+    'INSERT INTO tabs (id, title, type, content_ref, workspace_id, created_at, updated_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [tab.id, tab.title, tab.type, tab.content_ref ?? null, tab.workspace_id ?? null, now, now, tab.sort_order]
   )
 
   saveDatabase().catch(console.error)
@@ -459,6 +475,10 @@ export function updateTab(id: string, updates: Partial<DbTab>): void {
     fields.push('sort_order = ?')
     values.push(updates.sort_order)
   }
+  if (updates.workspace_id !== undefined) {
+    fields.push('workspace_id = ?')
+    values.push(updates.workspace_id)
+  }
 
   fields.push('updated_at = ?')
   values.push(Date.now())
@@ -482,5 +502,102 @@ export function reorderTabs(orderedIds: string[]): void {
     db!.run('UPDATE tabs SET sort_order = ?, updated_at = ? WHERE id = ?', [index, Date.now(), id])
   })
 
+  saveDatabase().catch(console.error)
+}
+
+// Workspace operations
+export interface DbWorkspace {
+  id: string
+  name: string
+  active_task: string | null
+  agent_status: string
+  active_genes: string // JSON array
+  gene_score: number
+  created_at: number
+  updated_at: number
+}
+
+export function listWorkspaces(): DbWorkspace[] {
+  if (!db) throw new Error('Database not initialized')
+
+  const stmt = db.prepare('SELECT * FROM workspaces ORDER BY created_at DESC')
+  const results: DbWorkspace[] = []
+
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbWorkspace)
+  }
+  stmt.free()
+
+  return results
+}
+
+export function getWorkspace(id: string): DbWorkspace | null {
+  if (!db) throw new Error('Database not initialized')
+
+  const stmt = db.prepare('SELECT * FROM workspaces WHERE id = ?')
+  stmt.bind([id])
+
+  let result: DbWorkspace | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbWorkspace
+  }
+  stmt.free()
+
+  return result
+}
+
+export function createWorkspace(workspace: Omit<DbWorkspace, 'active_genes' | 'gene_score' | 'created_at' | 'updated_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+
+  const now = Date.now()
+  db.run(
+    'INSERT INTO workspaces (id, name, active_task, agent_status, active_genes, gene_score, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [workspace.id, workspace.name, workspace.active_task ?? null, workspace.agent_status, '[]', 0, now, now]
+  )
+
+  saveDatabase().catch(console.error)
+}
+
+export function updateWorkspace(id: string, updates: Partial<DbWorkspace>): void {
+  if (!db) throw new Error('Database not initialized')
+
+  const fields: string[] = []
+  const values: (string | number | null)[] = []
+
+  if (updates.name !== undefined) {
+    fields.push('name = ?')
+    values.push(updates.name)
+  }
+  if (updates.active_task !== undefined) {
+    fields.push('active_task = ?')
+    values.push(updates.active_task)
+  }
+  if (updates.agent_status !== undefined) {
+    fields.push('agent_status = ?')
+    values.push(updates.agent_status)
+  }
+  if (updates.active_genes !== undefined) {
+    fields.push('active_genes = ?')
+    values.push(updates.active_genes)
+  }
+  if (updates.gene_score !== undefined) {
+    fields.push('gene_score = ?')
+    values.push(updates.gene_score)
+  }
+
+  if (fields.length === 0) return
+
+  fields.push('updated_at = ?')
+  values.push(Date.now())
+  values.push(id)
+
+  db.run(`UPDATE workspaces SET ${fields.join(', ')} WHERE id = ?`, values)
+  saveDatabase().catch(console.error)
+}
+
+export function deleteWorkspace(id: string): void {
+  if (!db) throw new Error('Database not initialized')
+
+  db.run('DELETE FROM workspaces WHERE id = ?', [id])
   saveDatabase().catch(console.error)
 }

@@ -7,6 +7,7 @@ export interface TabRecord {
   title: string
   type: TabType
   contentRef: string
+  workspaceId?: string
   createdAt: number
   updatedAt: number
   sortOrder: number

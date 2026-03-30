@@ -21,8 +21,10 @@ import {
   type StorageConfig,
 } from './storage.js'
 import { tabDb } from './tabs.js'
+import { workspaceDb } from './workspaces.js'
 import { autoNameTab } from './tab-naming.js'
 import type { TabRecord, TabType } from './common/tab.js'
+import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
 import Store from 'electron-store'
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -51,6 +53,9 @@ async function initStorage() {
   }
 
   await loadDatabase({ dataPath })
+
+  // Set workspace data path
+  workspaceDb.setDataPath(dataPath)
 
   // Load sessions from database into memory
   const dbSessions = getSessions()
@@ -310,6 +315,38 @@ ipcMain.handle('tabs:updateTitle', (_, id: string, title: string): TabRecord | n
   const updated = tabDb.updateTab(id, { title })
   broadcastTabsChanged()
   return updated
+})
+
+// Helper to broadcast workspace changes to renderer
+function broadcastWorkspacesChanged() {
+  const workspaces = workspaceDb.list()
+  mainWindow?.webContents.send('workspaces:changed', workspaces)
+}
+
+// IPC Handlers - Workspaces
+ipcMain.handle('workspaces:list', (): WorkspaceRecord[] => {
+  return workspaceDb.list()
+})
+
+ipcMain.handle('workspaces:create', async (_, name?: string): Promise<WorkspaceRecord> => {
+  const workspace = await workspaceDb.create(name)
+  broadcastWorkspacesChanged()
+  return workspace
+})
+
+ipcMain.handle('workspaces:update', (_, id: string, updates: WorkspaceUpdate): WorkspaceRecord | null => {
+  const updated = workspaceDb.update(id, updates)
+  broadcastWorkspacesChanged()
+  return updated
+})
+
+ipcMain.handle('workspaces:delete', async (_, id: string): Promise<void> => {
+  await workspaceDb.delete(id)
+  broadcastWorkspacesChanged()
+})
+
+ipcMain.handle('workspaces:get', (_, id: string): WorkspaceRecord | null => {
+  return workspaceDb.get(id)
 })
 
 function createWindow() {

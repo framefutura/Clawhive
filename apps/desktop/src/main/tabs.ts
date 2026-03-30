@@ -16,6 +16,7 @@ function dbToTabRecord(row: DbTab): TabRecord {
     title: row.title,
     type: row.type as TabType,
     contentRef: row.content_ref || '',
+    workspaceId: row.workspace_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     sortOrder: row.sort_order,
@@ -43,6 +44,7 @@ export class TabDb {
       title: partial.title,
       type: partial.type,
       content_ref: partial.contentRef || '',
+      workspace_id: partial.workspaceId ?? null,
       sort_order: partial.sortOrder ?? 0,
     }
 
@@ -53,6 +55,7 @@ export class TabDb {
       title: partial.title,
       type: partial.type,
       contentRef: partial.contentRef || '',
+      workspaceId: partial.workspaceId,
       createdAt: now,
       updatedAt: now,
       sortOrder: partial.sortOrder ?? 0,
@@ -72,6 +75,7 @@ export class TabDb {
     if (updates.type !== undefined) dbUpdates.type = updates.type
     if (updates.contentRef !== undefined) dbUpdates.content_ref = updates.contentRef
     if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder
+    if (updates.workspaceId !== undefined) dbUpdates.workspace_id = updates.workspaceId ?? null
 
     updateTab(id, dbUpdates)
 

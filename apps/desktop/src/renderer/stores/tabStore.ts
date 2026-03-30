@@ -5,7 +5,7 @@ interface TabStore {
   tabs: TabRecord[]
   activeTabId: string | null
   loadTabs: () => Promise<void>
-  createTab: (type: TabType, contentRef?: string, title?: string) => Promise<TabRecord>
+  createTab: (type: TabType, contentRef?: string, title?: string, workspaceId?: string) => Promise<TabRecord>
   closeTab: (id: string) => Promise<void>
   renameTab: (id: string, title: string) => Promise<void>
   updateTab: (id: string, updates: Partial<TabRecord>) => Promise<void>
@@ -61,9 +61,10 @@ export function useTabStore(): TabStore {
   const createTab = useCallback(async (
     type: TabType,
     contentRef?: string,
-    title?: string
+    title?: string,
+    workspaceId?: string
   ): Promise<TabRecord> => {
-    const newTab = await window.clawhive.createTab(type, contentRef, title)
+    const newTab = await window.clawhive.createTab(type, contentRef, title, workspaceId)
     // The onTabsChange handler will update local state
     setActiveTabId(newTab.id)
     return newTab

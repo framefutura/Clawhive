@@ -274,11 +274,12 @@ ipcMain.handle('tabs:list', (): TabRecord[] => {
   return tabDb.listTabs()
 })
 
-ipcMain.handle('tabs:create', (_, type: TabType, contentRef?: string, title?: string): TabRecord => {
+ipcMain.handle('tabs:create', (_, type: TabType, contentRef?: string, title?: string, workspaceId?: string): TabRecord => {
   const tab = tabDb.createTab({
     title: title || autoNameTab(type),
     type,
     contentRef: contentRef || '',
+    workspaceId,
     sortOrder: tabDb.listTabs().length,
   })
   broadcastTabsChanged()

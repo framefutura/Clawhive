@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { TabRecord, TabType } from './common/tab.js'
+import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
 const api = {
@@ -73,8 +74,8 @@ const api = {
 
   // Tabs
   listTabs: () => ipcRenderer.invoke('tabs:list'),
-  createTab: (type: TabType, contentRef?: string, title?: string) =>
-    ipcRenderer.invoke('tabs:create', type, contentRef, title),
+  createTab: (type: TabType, contentRef?: string, title?: string, workspaceId?: string) =>
+    ipcRenderer.invoke('tabs:create', type, contentRef, title, workspaceId),
   closeTab: (id: string) => ipcRenderer.invoke('tabs:close', id),
   renameTab: (id: string, title: string) => ipcRenderer.invoke('tabs:rename', id, title),
   updateTab: (id: string, updates: Partial<TabRecord>) =>
@@ -88,6 +89,19 @@ const api = {
     const listener = (_: Electron.IpcRendererEvent, tabs: TabRecord[]) => callback(tabs)
     ipcRenderer.on('tabs:changed', listener)
     return () => ipcRenderer.removeListener('tabs:changed', listener)
+  },
+
+  // Workspaces
+  listWorkspaces: () => ipcRenderer.invoke('workspaces:list'),
+  createWorkspace: (name?: string) => ipcRenderer.invoke('workspaces:create', name),
+  updateWorkspace: (id: string, updates: WorkspaceUpdate) =>
+    ipcRenderer.invoke('workspaces:update', id, updates),
+  deleteWorkspace: (id: string) => ipcRenderer.invoke('workspaces:delete', id),
+  getWorkspace: (id: string) => ipcRenderer.invoke('workspaces:get', id),
+  onWorkspacesChange: (callback: (workspaces: WorkspaceRecord[]) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, workspaces: WorkspaceRecord[]) => callback(workspaces)
+    ipcRenderer.on('workspaces:changed', listener)
+    return () => ipcRenderer.removeListener('workspaces:changed', listener)
   },
 }
 

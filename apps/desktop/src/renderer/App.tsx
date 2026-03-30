@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { TopBar } from './components/TopBar'
 import { TabBar } from './components/TabBar'
 import { Sidebar } from './components/Sidebar'
 import { Blackboard } from './components/Blackboard'
+import { TopologyGraph, createMockTopology } from './components/TopologyGraph'
 import { ChatView } from './components/ChatView'
 import { Settings } from './components/Settings'
 import { FirstLaunchWizard } from './components/FirstLaunchWizard'
 import { FileUpload, useClipboardPaste } from './components/FileUpload'
 import { useChatStore } from './stores/chatStore'
 import { useTabStore } from './stores/tabStore'
+import { useWorkspaceStore } from './stores/workspaceStore'
 import { useSession } from './hooks/useSession'
 import { useGateway } from './hooks/useGateway'
 import type { Provider } from './components/ModelPicker'
@@ -48,9 +50,21 @@ export default function App() {
     switchTab,
     getDisplayTabs,
   } = useTabStore()
+  const {
+    workspaces,
+    activeWorkspaceId,
+    createWorkspace,
+    setActiveWorkspace,
+    getWorkspace,
+  } = useWorkspaceStore()
 
   // Get the active tab record
   const activeTab = tabs.find(t => t.id === activeTabId)
+
+  // Get workspace for active tab
+  const activeWorkspace = activeTab?.workspaceId
+    ? getWorkspace(activeTab.workspaceId)
+    : null
 
   // Get chat session for active tab (chat tabs have contentRef as sessionId)
   const sessionId = activeTab?.type === 'chat' ? activeTab.contentRef : undefined
@@ -100,7 +114,8 @@ export default function App() {
     checkFirstLaunch()
   }, [])
 
-  const handleFirstLaunchComplete = async (config: {
+  // Auto-create main workspace on first launch completion
+  const handleFirstLaunchComplete = useCallback(async (config: {
     dataPath: string
     name: string
     role: string
@@ -124,8 +139,13 @@ export default function App() {
       genes: config.genes,
     })
 
-    // Create default tabs: workspace first, then chat
-    await createTab('workspace')
+    // Create the first workspace
+    const mainWorkspace = await createWorkspace('Main Workspace')
+
+    // Create default workspace tab linked to the main workspace
+    await createTab('workspace', '', 'Main Workspace', mainWorkspace.id)
+
+    // Create a chat tab
     await createTab('chat')
 
     // Mark first launch complete
@@ -143,7 +163,43 @@ export default function App() {
     setSelectedModel(config.model)
 
     setIsFirstLaunch(false)
-  }
+  }, [createTab, createWorkspace])
+
+  // Ensure at least one workspace tab exists on startup
+  useEffect(() => {
+    if (isFirstLaunch || isLoading || tabs.length > 0) return
+
+    // No tabs exist - create a default workspace
+    const ensureWorkspace = async () => {
+      try {
+        // Check if any workspaces exist
+        const existingWorkspaces = await window.clawhive.listWorkspaces()
+        let workspaceId: string
+
+        if (existingWorkspaces.length === 0) {
+          // Create a new workspace
+          const newWorkspace = await createWorkspace('Main Workspace')
+          workspaceId = newWorkspace.id
+        } else {
+          workspaceId = existingWorkspaces[0].id
+        }
+
+        // Create a workspace tab
+        await createTab('workspace', '', 'Main Workspace', workspaceId)
+      } catch (err) {
+        console.error('Failed to create default workspace:', err)
+      }
+    }
+
+    ensureWorkspace()
+  }, [isFirstLaunch, isLoading, tabs.length, createTab, createWorkspace])
+
+  // Update active workspace when tab changes
+  useEffect(() => {
+    if (activeTab?.workspaceId) {
+      setActiveWorkspace(activeTab.workspaceId)
+    }
+  }, [activeTab?.workspaceId, setActiveWorkspace])
 
   const handleFileUpload = (files: File[]) => {
     setAttachedFiles(prev => [...prev, ...files])
@@ -179,6 +235,12 @@ export default function App() {
       window.clawhive.updateTabTitle(activeTab.id, firstUserMessage.content)
     }
   }, [messages, activeTab])
+
+  // Handle creating a new workspace tab
+  const handleAddWorkspaceTab = useCallback(async () => {
+    const newWorkspace = await createWorkspace()
+    await createTab('workspace', '', newWorkspace.name, newWorkspace.id)
+  }, [createTab, createWorkspace])
 
   if (isLoading) {
     return (
@@ -233,11 +295,13 @@ export default function App() {
               onSelectTab={switchTab}
               onCloseTab={closeTab}
               onAddTab={(type?: TabType) => {
-                if (type) {
+                if (type === 'workspace') {
+                  handleAddWorkspaceTab()
+                } else if (type) {
                   createTab(type)
                 } else {
                   // Default to workspace tab if no type specified
-                  createTab('workspace')
+                  handleAddWorkspaceTab()
                 }
               }}
               onRenameTab={renameTab}
@@ -270,15 +334,25 @@ export default function App() {
                   </div>
                 </>
               ) : activeTab.type === 'workspace' ? (
-                <Blackboard
-                  activeGenes={SAMPLE_ACTIVE_GENES}
-                  currentTask={isWorking ? 'Processing your request...' : undefined}
-                  agentStatus={isWorking ? 'working' : 'idle'}
-                  recentMessages={messages.slice(-5).map(m => ({ content: m.content, timestamp: m.timestamp }))}
-                  onNewTask={() => createTab('chat')}
-                  onOpenChat={() => createTab('chat')}
-                  onViewLogs={() => {}}
-                />
+                activeWorkspace ? (
+                  <Blackboard
+                    workspaceId={activeWorkspace.id}
+                    workspaceName={activeWorkspace.name}
+                    activeGenes={activeWorkspace.activeGenes.length > 0
+                      ? activeWorkspace.activeGenes
+                      : SAMPLE_ACTIVE_GENES}
+                    currentTask={activeWorkspace.activeTask || (isWorking ? 'Processing your request...' : undefined)}
+                    agentStatus={isWorking ? 'working' : activeWorkspace.agentStatus}
+                    recentMessages={messages.slice(-5).map(m => ({ content: m.content, timestamp: m.timestamp }))}
+                    onNewTask={() => createTab('chat')}
+                    onOpenChat={() => createTab('chat')}
+                    onViewLogs={() => {}}
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    Loading workspace...
+                  </div>
+                )
               ) : activeTab.type === 'settings' ? (
                 <Settings
                   open={true}
@@ -303,18 +377,18 @@ export default function App() {
                   activeTabId="empty"
                   onSelectTab={() => {}}
                   onCloseTab={() => {}}
-                  onAddTab={(type?: TabType) => createTab(type || 'workspace')}
+                  onAddTab={(type?: TabType) => {
+                    if (type === 'workspace') {
+                      handleAddWorkspaceTab()
+                    } else {
+                      createTab(type || 'workspace')
+                    }
+                  }}
                   onRenameTab={() => {}}
                 />
-                <Blackboard
-                  activeGenes={SAMPLE_ACTIVE_GENES}
-                  currentTask={undefined}
-                  agentStatus="idle"
-                  recentMessages={[]}
-                  onNewTask={() => createTab('chat')}
-                  onOpenChat={() => createTab('chat')}
-                  onViewLogs={() => {}}
-                />
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                  No workspace active. Create a new tab to get started.
+                </div>
               </div>
             )}
           </div>

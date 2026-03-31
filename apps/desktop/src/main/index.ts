@@ -37,6 +37,7 @@ import { xlsxPlugin } from './formats/xlsx.js'
 import { BrowserManager } from './browser-manager.js'
 import { PlaywrightBridge } from './playwright-bridge.js'
 import { getPrivacyGuard } from './privacy-guard.js'
+import { getSandboxedBridge } from './sandboxed-bridge.js'
 import type { TabRecord, TabType } from './common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
 import Store from 'electron-store'
@@ -544,6 +545,50 @@ ipcMain.handle('privacy:auditLog:list', (_, options?: { limit?: number; decision
     limit: options?.limit,
     decision,
   })
+})
+
+// IPC Handlers - Sandboxed Bridge (Circuit Breakers)
+const sandboxedBridge = getSandboxedBridge()
+
+// Forward sandbox events to renderer
+sandboxedBridge.on('sandbox:paused', (data) => {
+  mainWindow?.webContents.send('sandbox:paused', data)
+})
+
+sandboxedBridge.on('sandbox:resumed', (data) => {
+  mainWindow?.webContents.send('sandbox:resumed', data)
+})
+
+ipcMain.handle('sandbox:canExecute', (_, sessionId: string, toolName: string, context: {
+  level: 'high' | 'medium' | 'low'
+  role: RoleProfile
+  workspaceId: string
+  workspacePath: string
+}) => {
+  return sandboxedBridge.canExecute(sessionId, toolName, context)
+})
+
+ipcMain.handle('sandbox:execute', async (_, sessionId: string, toolName: string, args: unknown, context: {
+  level: 'high' | 'medium' | 'low'
+  role: RoleProfile
+  workspaceId: string
+  workspacePath: string
+}) => {
+  return sandboxedBridge.execute(sessionId, toolName, args, context)
+})
+
+ipcMain.handle('sandbox:reset', (_, sessionId: string) => {
+  sandboxedBridge.resetSession(sessionId)
+  return true
+})
+
+ipcMain.handle('sandbox:resume', (_, sessionId: string) => {
+  sandboxedBridge.resumeSession(sessionId)
+  return true
+})
+
+ipcMain.handle('sandbox:getState', (_, sessionId: string) => {
+  return sandboxedBridge.getSessionState(sessionId)
 })
 
 function createWindow() {

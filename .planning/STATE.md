@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed Plan 02-04: Built-in Browser
-last_updated: "2026-03-30T19:00:00.000Z"
+stopped_at: "Completed Plan 02-04: Built-in Browser - Phase 2 Complete"
+last_updated: "2026-03-31T00:59:42.442Z"
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 1
   total_plans: 23
   completed_plans: 9
 ---
@@ -15,10 +15,10 @@ progress:
 # ClawHive Project State
 
 **Project:** ClawHive
-**Status:** Executing
+**Status:** Executing Phase 03
 **Current_phase:** 03-security-core
-**Current_plan:** 03-01
-**Last_completed:** 2026-03-30
+**Current_plan:** 03-02
+**Last_completed:** 2026-03-31
 
 ## Progress
 
@@ -48,6 +48,7 @@ Overall: 9/23 plans complete
 | Plan 02-02 complete | done | 2026-03-30 |
 | Plan 02-03 complete | done | 2026-03-30 |
 | Plan 02-04 complete | done | 2026-03-30 |
+| Plan 03-01 complete | done | 2026-03-31 |
 
 ## Artifacts
 
@@ -84,6 +85,9 @@ Overall: 9/23 plans complete
 - **NEW** External agent adapters (Claude Code, Codex) deferred to v2; A2A message bus预留 in Phase 4
 - **NEW** Browser integration uses Electron BrowserView (not \<webview\>) for better isolation
 - **NEW** Format plugin architecture established for MD/PDF/DOCX/XLSX with media extensibility hooks
+- **NEW** Security decisions enforced in code, never in prompts (deterministic policy enforcement)
+- **NEW** Permission matrix architecture with allow/deny/prompt tristate
+- **NEW** 4 default roles: CEO Agent, CFO Agent, Security Agent, Individual Agent
 
 ## Performance Metrics
 
@@ -97,23 +101,18 @@ Overall: 9/23 plans complete
 | 02-02 | 18min | 5 | 12 |
 | 02-03 | 45min | 5 | 13 |
 | Phase 02 P02-02 | 18m | 5 tasks | 12 files |
+| Phase 03-security-core P03-01 | 25min | 3 tasks | 5 files |
 
 ## Session
 
-**Last session:** 2026-03-30T19:00:00Z
-**Stopped at:** Completed Plan 02-04: Built-in Browser - Phase 2 Complete
+**Last session:** 2026-03-31T00:00:00Z
+**Stopped at:** Completed Plan 03-01: Security Manager
 
 ## Next Steps
 
-Phase 2 (Workspace & Control Plane) is now complete with all 4 plans finished:
-- 02-01: Tab System
-- 02-02: Cyber Workspace
-- 02-03: File System & Formats
-- 02-04: Built-in Browser
+Plan 03-01 (Security Manager) is now complete. Ready for Plan 03-02:
 
-Ready to begin Phase 3: Security Core
-
-- 03-01: Security Manager — Per-task security levels, approval workflows, role-based permissions
+- 03-02: Privacy Guard — Path blocking, safe zones, suspicious pattern detection, audit logging
 
 To continue:
 

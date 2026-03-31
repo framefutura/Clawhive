@@ -149,6 +149,29 @@ function initSchema(database: typeof db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
+
+    -- Privacy Guard: Activity log table
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id TEXT PRIMARY KEY,
+      timestamp INTEGER NOT NULL,
+      session_id TEXT,
+      agent_id TEXT,
+      action_type TEXT NOT NULL,
+      decision TEXT NOT NULL, -- allowed, denied, prompted
+      reason TEXT,
+      metadata TEXT -- JSON string for additional context
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_activity_log_timestamp ON activity_log(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_activity_log_agent ON activity_log(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_log_decision ON activity_log(decision);
+
+    -- Privacy Guard: Safe zones configuration
+    CREATE TABLE IF NOT EXISTS privacy_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `)
 
   // Seed default roles if table is empty
@@ -808,4 +831,165 @@ export function deleteRole(id: string): void {
 
   db.run('DELETE FROM roles WHERE id = ?', [id])
   saveDatabase().catch(console.error)
+}
+
+// Activity Log operations (Privacy Guard)
+export interface DbActivityLog {
+  id: string
+  timestamp: number
+  session_id: string | null
+  agent_id: string | null
+  action_type: string
+  decision: 'allowed' | 'denied' | 'prompted'
+  reason: string | null
+  metadata: string | null // JSON string
+}
+
+export function addActivityLog(entry: Omit<DbActivityLog, 'id'>): string {
+  if (!db) throw new Error('Database not initialized')
+
+  const id = crypto.randomUUID()
+  db.run(
+    'INSERT INTO activity_log (id, timestamp, session_id, agent_id, action_type, decision, reason, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [
+      id,
+      entry.timestamp,
+      entry.session_id ?? null,
+      entry.agent_id ?? null,
+      entry.action_type,
+      entry.decision,
+      entry.reason ?? null,
+      entry.metadata ?? null,
+    ]
+  )
+
+  saveDatabase().catch(console.error)
+  return id
+}
+
+export function getActivityLog(
+  options: {
+    limit?: number
+    offset?: number
+    decision?: 'allowed' | 'denied' | 'prompted'
+    agentId?: string
+  } = {}
+): DbActivityLog[] {
+  if (!db) throw new Error('Database not initialized')
+
+  const conditions: string[] = []
+  const params: (string | number)[] = []
+
+  if (options.decision) {
+    conditions.push('decision = ?')
+    params.push(options.decision)
+  }
+
+  if (options.agentId) {
+    conditions.push('agent_id = ?')
+    params.push(options.agentId)
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const limit = options.limit ?? 50
+  const offset = options.offset ?? 0
+
+  const stmt = db.prepare(
+    `SELECT * FROM activity_log ${whereClause} ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+  )
+  stmt.bind([...params, limit, offset])
+
+  const results: DbActivityLog[] = []
+  while (stmt.step()) {
+    const row = stmt.getAsObject() as Record<string, unknown>
+    results.push({
+      id: row.id as string,
+      timestamp: row.timestamp as number,
+      session_id: row.session_id as string | null,
+      agent_id: row.agent_id as string | null,
+      action_type: row.action_type as string,
+      decision: row.decision as 'allowed' | 'denied' | 'prompted',
+      reason: row.reason as string | null,
+      metadata: row.metadata as string | null,
+    })
+  }
+  stmt.free()
+
+  return results
+}
+
+export function getActivityLogCount(
+  options: {
+    decision?: 'allowed' | 'denied' | 'prompted'
+    agentId?: string
+  } = {}
+): number {
+  if (!db) throw new Error('Database not initialized')
+
+  const conditions: string[] = []
+  const params: string[] = []
+
+  if (options.decision) {
+    conditions.push('decision = ?')
+    params.push(options.decision)
+  }
+
+  if (options.agentId) {
+    conditions.push('agent_id = ?')
+    params.push(options.agentId)
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+  const stmt = db.prepare(`SELECT COUNT(*) as count FROM activity_log ${whereClause}`)
+  if (params.length > 0) {
+    stmt.bind(params)
+  }
+
+  let count = 0
+  if (stmt.step()) {
+    count = stmt.getAsObject().count as number
+  }
+  stmt.free()
+
+  return count
+}
+
+export function clearActivityLog(): void {
+  if (!db) throw new Error('Database not initialized')
+
+  db.run('DELETE FROM activity_log')
+  saveDatabase().catch(console.error)
+}
+
+// Privacy Settings operations
+export interface PrivacySettings {
+  safeZones: string[]
+}
+
+export function getPrivacySettings(): PrivacySettings {
+  const safeZonesValue = getConfig('privacy_safe_zones')
+  return {
+    safeZones: safeZonesValue ? JSON.parse(safeZonesValue) : [],
+  }
+}
+
+export function setPrivacySettings(settings: PrivacySettings): void {
+  setConfig('privacy_safe_zones', JSON.stringify(settings.safeZones))
+}
+
+export function addSafeZone(safeZone: string): void {
+  const settings = getPrivacySettings()
+  const normalized = path.resolve(safeZone)
+  if (!settings.safeZones.includes(normalized)) {
+    settings.safeZones.push(normalized)
+    setPrivacySettings(settings)
+  }
+}
+
+export function removeSafeZone(safeZone: string): void {
+  const settings = getPrivacySettings()
+  const normalized = path.resolve(safeZone)
+  settings.safeZones = settings.safeZones.filter(z => z !== normalized)
+  setPrivacySettings(settings)
 }

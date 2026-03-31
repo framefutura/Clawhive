@@ -163,6 +163,18 @@ const api = {
   removeSafeZone: (path: string) => ipcRenderer.invoke('privacy:safeZone:remove', path),
   getActivityLog: (options?: { limit?: number; decision?: string }) =>
     ipcRenderer.invoke('privacy:auditLog:list', options),
+
+  // Security (Approval Gates)
+  getRoles: () => ipcRenderer.invoke('security:roles:list'),
+  updateSessionSecurity: (sessionId: string, securityLevel: 'high' | 'medium' | 'low', roleName: string) =>
+    ipcRenderer.invoke('session:security:update', sessionId, securityLevel, roleName),
+  onSecurityApprovalRequested: (callback: (request: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, data: unknown) => callback(data)
+    ipcRenderer.on('security:approval-requested', listener)
+    return () => ipcRenderer.removeListener('security:approval-requested', listener)
+  },
+  resolveSecurityApproval: (approvalId: string, approved: boolean) =>
+    ipcRenderer.invoke('security:approval-resolve', approvalId, approved),
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

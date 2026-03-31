@@ -41,6 +41,7 @@ import { PlaywrightBridge } from './playwright-bridge.js'
 import { getPrivacyGuard } from './privacy-guard.js'
 import { getSandboxedBridge } from './sandboxed-bridge.js'
 import { getToolRegistry, type AgentToolPermission } from './tool-registry.js'
+import { getSecurityManager } from './security-manager.js'
 import type { TabRecord, TabType } from './common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
 import Store from 'electron-store'
@@ -193,6 +194,11 @@ ipcMain.handle(
 
 ipcMain.handle('security:roles:list', () => {
   return listRoles()
+})
+
+ipcMain.handle('security:approval-resolve', (_, approvalId: string, approved: boolean) => {
+  getSecurityManager().resolveApproval(approvalId, approved)
+  return true
 })
 
 // IPC Handlers - Chat (persist messages)
@@ -677,6 +683,12 @@ function createWindow() {
 
   // Initialize BrowserManager
   browserManager = new BrowserManager(mainWindow)
+
+  // Wire SecurityManager approval flow to renderer
+  const securityManager = getSecurityManager()
+  securityManager.setApprovalEmitter((approvalRequest) => {
+    mainWindow?.webContents.send('security:approval-requested', approvalRequest)
+  })
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()

@@ -21,6 +21,7 @@ import {
 
 export class SecurityManager {
   private approvalCallbacks: Map<string, (approved: boolean) => void> = new Map()
+  private approvalEmitter: ((approvalRequest: ApprovalRequest) => void) | null = null
   private activityLog: Array<{
     timestamp: number
     action: string
@@ -166,19 +167,27 @@ export class SecurityManager {
   }
 
   /**
+   * Set the approval emitter callback (called by main process with window reference)
+   */
+  setApprovalEmitter(emitter: (approvalRequest: ApprovalRequest) => void): void {
+    this.approvalEmitter = emitter
+  }
+
+  /**
    * Request approval from user/parent
    */
   async requestApproval(approvalRequest: ApprovalRequest): Promise<boolean> {
     return new Promise((resolve) => {
       this.approvalCallbacks.set(approvalRequest.id, resolve)
 
-      // In a real implementation, this would emit an IPC event
-      // to show a UI prompt and wait for user response
-      // For now, we'll auto-approve in development
       console.log(`[Security] Approval requested: ${approvalRequest.reason}`)
 
-      // TODO: Emit IPC event to renderer for user approval
-      // window.webContents.send('security:approval-requested', approvalRequest)
+      // Emit to renderer for user approval
+      if (this.approvalEmitter) {
+        this.approvalEmitter(approvalRequest)
+      } else {
+        console.warn('[Security] No approval emitter configured - approval will block until resolveApproval() is called')
+      }
     })
   }
 

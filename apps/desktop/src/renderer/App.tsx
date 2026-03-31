@@ -20,6 +20,7 @@ import type { Provider } from './components/ModelPicker'
 import type { GeneCategory } from './types'
 import type { TabType } from '../common/tab'
 import type { SecurityLevel, PermissionMatrix } from '../common/security'
+import type { ApprovalRequest } from '../main/security-manager'
 import './styles/shadcn-variables.css'
 
 // Sample gene categories for sidebar
@@ -40,33 +41,6 @@ const SAMPLE_ACTIVE_GENES: { category: GeneCategory; name: string }[] = [
   { category: 'data', name: 'Data Analysis' },
   { category: 'comm', name: 'Summarization' },
 ]
-
-// Sample permissions for security panel (would come from role in production)
-const SAMPLE_PERMISSIONS: PermissionMatrix = {
-  tools: {
-    'fs.read': 'allow',
-    'fs.write': 'allow',
-    'fs.unlink': 'prompt',
-    'child_process.spawn': 'prompt',
-    'http.request': 'allow',
-    'agent.delegate': 'allow',
-    'task.create': 'allow',
-    'task.assign': 'allow',
-  },
-  files: {
-    read: ['~/.clawhive/workspaces/*', '~/Documents/*'],
-    write: ['~/.clawhive/workspaces/*'],
-    deny: ['~/.ssh/*', '~/.aws/*', '~/.clawhive/secrets/*'],
-  },
-  network: {
-    allowHosts: ['*'],
-    denyHosts: [],
-  },
-  execution: {
-    shell: 'prompt',
-    code: 'allow',
-  },
-}
 
 export default function App() {
   const { connected } = useGateway()
@@ -107,10 +81,11 @@ export default function App() {
   const [agents, setAgents] = useState([{
     id: 'default',
     name: 'ClawHive Agent',
-    role: 'General Assistant',
+    role: 'Individual Agent',
     status: 'idle' as const,
     geneCount: 3,
   }])
+  const [roles, setRoles] = useState<{ id: string; name: string; default_level: 'high' | 'medium' | 'low'; permissions: string }[]>([])
   const [activeAgentId, setActiveAgentId] = useState<string>('default')
   const [storagePath, setStoragePath] = useState('~/.clawhive')
 
@@ -122,7 +97,13 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [securityPanelOpen, setSecurityPanelOpen] = useState(false)
   const [securityLevel, setSecurityLevel] = useState<SecurityLevel>('medium')
+  const [parsedPermissions, setParsedPermissions] = useState<PermissionMatrix>({
+    tools: {}, files: { read: [], write: [], deny: [] }, network: { allowHosts: [], denyHosts: [] }, execution: { shell: 'prompt', code: 'prompt' }
+  })
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+
+  // Approval dialog state
+  const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null)
 
   // Browser state
   const [browserUrls, setBrowserUrls] = useState<Record<string, string>>({})
@@ -244,6 +225,87 @@ export default function App() {
       setActiveWorkspace(activeTab.workspaceId)
     }
   }, [activeTab?.workspaceId, setActiveWorkspace])
+
+  // Load roles from database on startup
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const roles = await window.clawhive.getRoles()
+        setRoles(roles)
+      } catch (err) {
+        console.error('Failed to load roles:', err)
+      }
+    }
+    loadRoles()
+  }, [])
+
+  // Sync security level and permissions from session and role
+  useEffect(() => {
+    const syncSecurity = async () => {
+      if (sessionId) {
+        try {
+          const sessions = await window.clawhive.getSessions()
+          const session = sessions.find((s: { id: string }) => s.id === sessionId)
+          if (session) {
+            // Use persisted security level if available
+            if (session.security_level) {
+              setSecurityLevel(session.security_level)
+            }
+            // Find role by name and parse permissions
+            const roleName = session.role_name || agents.find(a => a.id === activeAgentId)?.role || 'Individual Agent'
+            const role = roles.find((r: { name: string }) => r.name === roleName)
+            if (role) {
+              try {
+                const permissions = JSON.parse(role.permissions) as PermissionMatrix
+                setParsedPermissions(permissions)
+              } catch (e) {
+                console.error('Failed to parse role permissions:', e)
+                // Fall back to empty permissions
+                setParsedPermissions({
+                  tools: {},
+                  files: { read: [], write: [], deny: [] },
+                  network: { allowHosts: [], denyHosts: [] },
+                  execution: { shell: 'prompt', code: 'prompt' }
+                })
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Failed to sync security from session:', err)
+        }
+      }
+    }
+    syncSecurity()
+  }, [sessionId, roles, agents, activeAgentId])
+
+  // Persist security level changes and update permissions
+  const handleChangeLevel = async (newLevel: SecurityLevel) => {
+    setSecurityLevel(newLevel)
+    if (sessionId) {
+      try {
+        const roleName = agents.find(a => a.id === activeAgentId)?.role || 'Individual Agent'
+        await window.clawhive.updateSessionSecurity(sessionId, newLevel, roleName)
+      } catch (err) {
+        console.error('Failed to persist security level:', err)
+      }
+    }
+  }
+
+  // Subscribe to approval requests
+  useEffect(() => {
+    const unsubscribe = window.clawhive.onSecurityApprovalRequested((request: unknown) => {
+      setPendingApproval(request as ApprovalRequest)
+    })
+    return unsubscribe
+  }, [])
+
+  // Handle approval resolution
+  const handleResolveApproval = async (approved: boolean) => {
+    if (pendingApproval) {
+      await window.clawhive.resolveSecurityApproval(pendingApproval.id, approved)
+      setPendingApproval(null)
+    }
+  }
 
   const handleFileUpload = (files: File[]) => {
     setAttachedFiles(prev => [...prev, ...files])
@@ -599,9 +661,47 @@ export default function App() {
           onClose={() => setSecurityPanelOpen(false)}
           role={agents.find(a => a.id === activeAgentId)?.role || 'Individual Agent'}
           level={securityLevel}
-          onChangeLevel={setSecurityLevel}
-          permissions={SAMPLE_PERMISSIONS}
+          onChangeLevel={handleChangeLevel}
+          permissions={parsedPermissions}
         />
+
+        {/* Security Approval Dialog */}
+        {pendingApproval && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-background rounded-lg shadow-lg max-w-md w-full p-6">
+              <h3 className="text-lg font-semibold mb-2">Security Approval Required</h3>
+              <p className="text-muted-foreground mb-4">{pendingApproval.reason}</p>
+              <div className="bg-muted rounded p-3 mb-6 font-mono text-sm">
+                {pendingApproval.action.type === 'tool' && pendingApproval.action.tool && (
+                  <span>Tool: {pendingApproval.action.tool}</span>
+                )}
+                {pendingApproval.action.type === 'execution' && (
+                  <span>Execution: {pendingApproval.action.command || pendingApproval.action.code}</span>
+                )}
+                {pendingApproval.action.type === 'file' && pendingApproval.action.path && (
+                  <span>File: {pendingApproval.action.operation} {pendingApproval.action.path}</span>
+                )}
+                {pendingApproval.action.type === 'network' && pendingApproval.action.host && (
+                  <span>Network: {pendingApproval.action.host}</span>
+                )}
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => handleResolveApproval(false)}
+                  className="px-4 py-2 rounded border hover:bg-muted transition-colors"
+                >
+                  Deny
+                </button>
+                <button
+                  onClick={() => handleResolveApproval(true)}
+                  className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Approve
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Capture Results Modal */}

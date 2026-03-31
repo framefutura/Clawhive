@@ -77,7 +77,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 5. Tool permissions follow deny-by-default policy
 6. Approval gates log decisions to an immutable activity log
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 - [ ] 03-01: Security Manager — Per-task security levels, approval workflows, role-based permissions
 - [ ] 03-02: Privacy Guard — Path blocking, safe zones, suspicious pattern detection, audit logging
 - [ ] 03-03: Sandboxed Bridge — Isolated code execution, tool permission system, deny-by-default policy, circuit breakers (100 call cap)
@@ -154,7 +154,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 |-------|-----------|----------------|--------|
 | 1. Foundation | v1.0 | 5/5 | Complete |
 | 2. Workspace & Control Plane | v1.0 | 4/4 | Complete |
-| 3. Security Core | 1/3 | In Progress|  |
+| 3. Security Core | 2/3 | In Progress|  |
 | 4. Multi-Agent Core | v1.0 | 0/4 | Planned |
 | 5. Advanced Features | v1.0 | 0/4 | Planned |
 | 6. Polish & Distribution | v1.0 | 0/3 | Planned |

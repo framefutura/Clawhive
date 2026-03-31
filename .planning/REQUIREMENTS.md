@@ -25,9 +25,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **SEC-01**: User can set per-task security level (high/medium/low)
 - [ ] **SEC-02**: High security tasks require approval for all actions
 - [ ] **SEC-03**: Medium security tasks require approval for sensitive operations only
-- [ ] **SEC-04**: Privacy guard blocks access to sensitive paths by default
-- [ ] **SEC-05**: User can define safe zones for file system access
-- [ ] **SEC-06**: Suspicious patterns (credential access, shell injection) are blocked and logged
+- [x] **SEC-04**: Privacy guard blocks access to sensitive paths by default
+- [x] **SEC-05**: User can define safe zones for file system access
+- [x] **SEC-06**: Suspicious patterns (credential access, shell injection) are blocked and logged
 - [ ] **SEC-07**: All agent code execution runs in sandboxed bridge
 - [ ] **SEC-08**: Role-based permissions system controls agent capabilities
 - [ ] **SEC-09**: Tool permissions follow deny-by-default policy
@@ -135,9 +135,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 2 | Pending |
 | SEC-03 | Phase 2 | Pending |
-| SEC-04 | Phase 2 | Pending |
-| SEC-05 | Phase 2 | Pending |
-| SEC-06 | Phase 2 | Pending |
+| SEC-04 | Phase 2 | Complete |
+| SEC-05 | Phase 2 | Complete |
+| SEC-06 | Phase 2 | Complete |
 | SEC-07 | Phase 2 | Pending |
 | SEC-08 | Phase 2 | Pending |
 | SEC-09 | Phase 2 | Pending |

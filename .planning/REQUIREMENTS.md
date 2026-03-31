@@ -20,20 +20,33 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FND-09**: App displays ambient visual feedback (glow/pulse) during agent work
 - [x] **FND-10**: IPC bridge established between Electron main process and renderer
 
-### Security Core (Phase 2)
+### Workspace & Control Plane (Phase 2)
 
-- [ ] **SEC-01**: User can set per-task security level (high/medium/low)
-- [ ] **SEC-02**: High security tasks require approval for all actions
-- [ ] **SEC-03**: Medium security tasks require approval for sensitive operations only
-- [x] **SEC-04**: Privacy guard blocks access to sensitive paths by default
-- [x] **SEC-05**: User can define safe zones for file system access
-- [x] **SEC-06**: Suspicious patterns (credential access, shell injection) are blocked and logged
-- [ ] **SEC-07**: All agent code execution runs in sandboxed bridge
-- [ ] **SEC-08**: Role-based permissions system controls agent capabilities
-- [ ] **SEC-09**: Tool permissions follow deny-by-default policy
-- [ ] **SEC-10**: Tool-loop circuit breakers prevent infinite execution (100 call cap)
+- [x] **WKP-01**: User can create, delete, and rename tabs
+- [x] **WKP-02**: Tabs auto-name based on content
+- [x] **WKP-03**: Blackboard shows active genes, current task, agent status
+- [x] **WKP-04**: File manager can open, create, preview Markdown, PDF, Word, Excel
+- [x] **WKP-05**: Built-in browser renders web pages and captures content
+- [x] **WKP-06**: Workspaces isolated at file-system level (~/.clawhive/workspaces/<id>/)
+- [x] **WKP-07**: Agent-to-agent message protocol established in IPC layer
+- [x] **WKP-08**: Cyber Workspace with hex topology visualization
+- [x] **WKP-09**: Unified file system with format plugins
+- [x] **WKP-10**: Message bus middleware foundation
 
-### Multi-Agent Core (Phase 3)
+### Security Core (Phase 3)
+
+- [x] **SEC-01**: User can set per-task security level (high/medium/low) — `03-01`
+- [x] **SEC-02**: High security tasks require approval for all actions — `03-01, 03-04`
+- [x] **SEC-03**: Medium security tasks require approval for sensitive operations only — `03-01, 03-04`
+- [x] **SEC-04**: Privacy guard blocks access to sensitive paths by default — `03-02`
+- [x] **SEC-05**: User can define safe zones for file system access — `03-02`
+- [x] **SEC-06**: Suspicious patterns (credential access, shell injection) are blocked and logged — `03-02`
+- [x] **SEC-07**: All agent code execution runs in sandboxed bridge — `03-03`
+- [x] **SEC-08**: Role-based permissions system controls agent capabilities — `03-01`
+- [x] **SEC-09**: Tool permissions follow deny-by-default policy — `03-03`
+- [x] **SEC-10**: Tool-loop circuit breakers prevent infinite execution (100 call cap) — `03-03`
+
+### Multi-Agent Core (Phase 4)
 
 - [ ] **AGENT-01**: User can create agents with custom roles and responsibilities
 - [ ] **AGENT-02**: User can organize agents in hierarchy (CEO/CFO/COO → Dept → Team → Agent)
@@ -48,7 +61,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AGENT-11**: Swarm view shows real-time team collaboration status
 - [ ] **AGENT-12**: Progress view tracks task completion across agents
 
-### Advanced Features (Phase 4)
+### Advanced Features (Phase 5)
 
 - [ ] **ADV-01**: Plan-first mode requires user approval before execution
 - [ ] **ADV-02**: Agents can submit plans with checkpoints for user review
@@ -63,7 +76,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **ADV-11**: Recurring/scheduled tasks with team/agent selection
 - [ ] **ADV-12**: Browser control via built-in Playwright/Puppeteer integration
 
-### Polish & Distribution (Phase 5)
+### Polish & Distribution (Phase 6)
 
 - [ ] **POL-01**: Bilingual UI supports English and Chinese
 - [ ] **POL-02**: Auto-update checks monthly and prompts user (not automatic)
@@ -132,49 +145,59 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FND-08 | Phase 1 | Pending |
 | FND-09 | Phase 1 | Complete |
 | FND-10 | Phase 1 | Complete |
-| SEC-01 | Phase 2 | Pending |
-| SEC-02 | Phase 2 | Pending |
-| SEC-03 | Phase 2 | Pending |
-| SEC-04 | Phase 2 | Complete |
-| SEC-05 | Phase 2 | Complete |
-| SEC-06 | Phase 2 | Complete |
-| SEC-07 | Phase 2 | Pending |
-| SEC-08 | Phase 2 | Pending |
-| SEC-09 | Phase 2 | Pending |
-| SEC-10 | Phase 2 | Pending |
-| AGENT-01 | Phase 3 | Pending |
-| AGENT-02 | Phase 3 | Pending |
-| AGENT-03 | Phase 3 | Pending |
-| AGENT-04 | Phase 3 | Pending |
-| AGENT-05 | Phase 3 | Pending |
-| AGENT-06 | Phase 3 | Pending |
-| AGENT-07 | Phase 3 | Pending |
-| AGENT-08 | Phase 3 | Pending |
-| AGENT-09 | Phase 3 | Pending |
-| AGENT-10 | Phase 3 | Pending |
-| AGENT-11 | Phase 3 | Pending |
-| AGENT-12 | Phase 3 | Pending |
-| ADV-01 | Phase 4 | Pending |
-| ADV-02 | Phase 4 | Pending |
-| ADV-03 | Phase 4 | Pending |
-| ADV-04 | Phase 4 | Pending |
-| ADV-05 | Phase 4 | Pending |
-| ADV-06 | Phase 4 | Pending |
-| ADV-07 | Phase 4 | Pending |
-| ADV-08 | Phase 4 | Pending |
-| ADV-09 | Phase 4 | Pending |
-| ADV-10 | Phase 4 | Pending |
-| ADV-11 | Phase 4 | Pending |
-| ADV-12 | Phase 4 | Pending |
-| POL-01 | Phase 5 | Pending |
-| POL-02 | Phase 5 | Pending |
-| POL-03 | Phase 5 | Pending |
-| POL-04 | Phase 5 | Pending |
-| POL-05 | Phase 5 | Pending |
-| POL-06 | Phase 5 | Pending |
-| POL-07 | Phase 5 | Pending |
-| POL-08 | Phase 5 | Pending |
-| POL-09 | Phase 5 | Pending |
+| WKP-01 | Phase 2 | Complete |
+| WKP-02 | Phase 2 | Complete |
+| WKP-03 | Phase 2 | Complete |
+| WKP-04 | Phase 2 | Complete |
+| WKP-05 | Phase 2 | Complete |
+| WKP-06 | Phase 2 | Complete |
+| WKP-07 | Phase 2 | Complete |
+| WKP-08 | Phase 2 | Complete |
+| WKP-09 | Phase 2 | Complete |
+| WKP-10 | Phase 2 | Complete |
+| SEC-01 | Phase 3 | Complete |
+| SEC-02 | Phase 3 | Complete |
+| SEC-03 | Phase 3 | Complete |
+| SEC-04 | Phase 3 | Complete |
+| SEC-05 | Phase 3 | Complete |
+| SEC-06 | Phase 3 | Complete |
+| SEC-07 | Phase 3 | Complete |
+| SEC-08 | Phase 3 | Complete |
+| SEC-09 | Phase 3 | Complete |
+| SEC-10 | Phase 3 | Complete |
+| AGENT-01 | Phase 4 | Pending |
+| AGENT-02 | Phase 4 | Pending |
+| AGENT-03 | Phase 4 | Pending |
+| AGENT-04 | Phase 4 | Pending |
+| AGENT-05 | Phase 4 | Pending |
+| AGENT-06 | Phase 4 | Pending |
+| AGENT-07 | Phase 4 | Pending |
+| AGENT-08 | Phase 4 | Pending |
+| AGENT-09 | Phase 4 | Pending |
+| AGENT-10 | Phase 4 | Pending |
+| AGENT-11 | Phase 4 | Pending |
+| AGENT-12 | Phase 4 | Pending |
+| ADV-01 | Phase 5 | Pending |
+| ADV-02 | Phase 5 | Pending |
+| ADV-03 | Phase 5 | Pending |
+| ADV-04 | Phase 5 | Pending |
+| ADV-05 | Phase 5 | Pending |
+| ADV-06 | Phase 5 | Pending |
+| ADV-07 | Phase 5 | Pending |
+| ADV-08 | Phase 5 | Pending |
+| ADV-09 | Phase 5 | Pending |
+| ADV-10 | Phase 5 | Pending |
+| ADV-11 | Phase 5 | Pending |
+| ADV-12 | Phase 5 | Pending |
+| POL-01 | Phase 6 | Pending |
+| POL-02 | Phase 6 | Pending |
+| POL-03 | Phase 6 | Pending |
+| POL-04 | Phase 6 | Pending |
+| POL-05 | Phase 6 | Pending |
+| POL-06 | Phase 6 | Pending |
+| POL-07 | Phase 6 | Pending |
+| POL-08 | Phase 6 | Pending |
+| POL-09 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 51 total

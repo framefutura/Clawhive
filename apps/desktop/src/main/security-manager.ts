@@ -9,6 +9,8 @@ import type {
   ActionRequest,
   SecurityDecision,
   ApprovalRequest,
+} from '../common/security.js'
+import {
   isSensitiveOperation,
   getRoleProfile,
 } from '../common/security.js'

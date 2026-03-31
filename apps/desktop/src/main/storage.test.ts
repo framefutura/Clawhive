@@ -26,6 +26,7 @@ const {
   getAgentGenes,
   getConfig,
   setConfig,
+  updateSessionSecurity,
 } = await import('./storage.js')
 
 describe('Storage Module', () => {
@@ -154,5 +155,45 @@ describe('Storage Module', () => {
     // Verify data persisted
     const sessions = getSessions()
     expect(sessions.some(s => s.id === 'persist-test')).toBe(true)
+  })
+
+  it('should update session security level and role', () => {
+    createSession({
+      id: 'security-test-session',
+      agent_id: 'agent-1',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4',
+      security_level: 'medium',
+      role_name: null,
+    })
+
+    updateSessionSecurity('security-test-session', 'high', 'CEO Agent')
+
+    const sessions = getSessions()
+    const updated = sessions.find(s => s.id === 'security-test-session')
+    expect(updated?.security_level).toBe('high')
+    expect(updated?.role_name).toBe('CEO Agent')
+  })
+
+  it('should persist session security after reload', async () => {
+    createSession({
+      id: 'security-persist-test',
+      agent_id: 'agent-1',
+      provider: 'anthropic',
+      model: 'claude',
+      security_level: 'medium',
+      role_name: null,
+    })
+
+    updateSessionSecurity('security-persist-test', 'low', 'Individual Agent')
+
+    // Reload database
+    closeDatabase()
+    await loadDatabase({ dataPath: tempDir })
+
+    const sessions = getSessions()
+    const reloaded = sessions.find(s => s.id === 'security-persist-test')
+    expect(reloaded?.security_level).toBe('low')
+    expect(reloaded?.role_name).toBe('Individual Agent')
   })
 })

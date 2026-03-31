@@ -154,6 +154,15 @@ const api = {
     ipcRenderer.invoke('automation:screenshot', url, selector),
   automationRun: (url: string, actions: unknown[]) =>
     ipcRenderer.invoke('automation:run', url, actions),
+
+  // Privacy Guard
+  getPrivacySettings: () => ipcRenderer.invoke('privacy:settings:get'),
+  setPrivacySettings: (settings: { safeZones: string[] }) =>
+    ipcRenderer.invoke('privacy:settings:set', settings),
+  addSafeZone: (path: string) => ipcRenderer.invoke('privacy:safeZone:add', path),
+  removeSafeZone: (path: string) => ipcRenderer.invoke('privacy:safeZone:remove', path),
+  getActivityLog: (options?: { limit?: number; decision?: string }) =>
+    ipcRenderer.invoke('privacy:auditLog:list', options),
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

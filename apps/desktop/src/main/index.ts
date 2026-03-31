@@ -19,6 +19,11 @@ import {
   getConfig as getDbConfig,
   setConfig as setDbConfig,
   getDataPath,
+  getPrivacySettings,
+  setPrivacySettings,
+  addSafeZone as addDbSafeZone,
+  removeSafeZone as removeDbSafeZone,
+  getActivityLog,
   type StorageConfig,
 } from './storage.js'
 import { tabDb } from './tabs.js'
@@ -31,6 +36,7 @@ import { docxPlugin } from './formats/docx.js'
 import { xlsxPlugin } from './formats/xlsx.js'
 import { BrowserManager } from './browser-manager.js'
 import { PlaywrightBridge } from './playwright-bridge.js'
+import { getPrivacyGuard } from './privacy-guard.js'
 import type { TabRecord, TabType } from './common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
 import Store from 'electron-store'
@@ -81,6 +87,11 @@ async function initStorage() {
   formatRegistry.register(pdfPlugin)
   formatRegistry.register(docxPlugin)
   formatRegistry.register(xlsxPlugin)
+
+  // Initialize Privacy Guard with stored safe zones
+  const privacySettings = getPrivacySettings()
+  const guard = getPrivacyGuard()
+  guard.setSafeZones(privacySettings.safeZones)
 
   return true
 }
@@ -497,6 +508,45 @@ ipcMain.handle('automation:run', async (_, url: string, actions: unknown[]) => {
   }
   return playwrightBridge.runAutomation(url, actions as Parameters<PlaywrightBridge['runAutomation']>[1])
 })
+
+// IPC Handlers - Privacy Guard
+ipcMain.handle('privacy:settings:get', () => {
+  return getPrivacySettings()
+})
+
+ipcMain.handle('privacy:settings:set', (_, settings: { safeZones: string[] }) => {
+  setPrivacySettings(settings)
+  // Update the privacy guard singleton
+  const guard = getPrivacyGuard()
+  guard.setSafeZones(settings.safeZones)
+  return true
+})
+
+ipcMain.handle('privacy:safeZone:add', (_, safeZonePath: string) => {
+  addDbSafeZone(safeZonePath)
+  // Also update the runtime privacy guard
+  const guard = getPrivacyGuard()
+  guard.addSafeZone(safeZonePath)
+  return true
+})
+
+ipcMain.handle('privacy:safeZone:remove', (_, safeZonePath: string) => {
+  removeDbSafeZone(safeZonePath)
+  // Also update the runtime privacy guard
+  const guard = getPrivacyGuard()
+  guard.removeSafeZone(safeZonePath)
+  return true
+})
+
+ipcMain.handle('privacy:auditLog:list', (_, options?: { limit?: number; decision?: string }) => {
+  const decision = options?.decision as 'allowed' | 'denied' | 'prompted' | undefined
+  return getActivityLog({
+    limit: options?.limit,
+    decision,
+  })
+})
+
+function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,

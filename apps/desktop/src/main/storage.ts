@@ -139,7 +139,120 @@ function initSchema(database: typeof db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_workspaces_name ON workspaces(name);
+
+    -- Security Core: Roles table
+    CREATE TABLE IF NOT EXISTS roles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      default_level TEXT NOT NULL CHECK(default_level IN ('high', 'medium', 'low')),
+      permissions TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
   `)
+
+  // Seed default roles if table is empty
+  seedDefaultRoles(database)
+}
+
+/**
+ * Seed default roles into the database
+ */
+function seedDefaultRoles(database: typeof db) {
+  if (!database) return
+
+  const count = database.exec('SELECT COUNT(*) as count FROM roles')[0]?.values[0]?.[0] as number
+  if (count > 0) return
+
+  const defaultRoles = [
+    {
+      id: 'ceo-agent',
+      name: 'CEO Agent',
+      default_level: 'medium',
+      permissions: JSON.stringify({
+        tools: {
+          'fs.read': 'allow',
+          'fs.write': 'allow',
+          'fs.unlink': 'prompt',
+          'child_process.spawn': 'prompt',
+          'http.request': 'allow',
+          'agent.delegate': 'allow',
+          'task.create': 'allow',
+          'task.assign': 'allow',
+        },
+        files: { read: ['~/.clawhive/workspaces/*', '~/Documents/*'], write: ['~/.clawhive/workspaces/*'], deny: ['~/.ssh/*', '~/.aws/*', '~/.clawhive/secrets/*'] },
+        network: { allowHosts: ['*'], denyHosts: [] },
+        execution: { shell: 'prompt', code: 'allow' },
+      }),
+    },
+    {
+      id: 'cfo-agent',
+      name: 'CFO Agent',
+      default_level: 'medium',
+      permissions: JSON.stringify({
+        tools: {
+          'fs.read': 'allow',
+          'fs.write': 'allow',
+          'fs.unlink': 'deny',
+          'child_process.spawn': 'deny',
+          'http.request': 'allow',
+          'spreadsheet.read': 'allow',
+          'spreadsheet.write': 'allow',
+          'budget.query': 'allow',
+          'cost.report': 'allow',
+        },
+        files: { read: ['~/.clawhive/workspaces/*', '~/Documents/*', '~/Downloads/*'], write: ['~/.clawhive/workspaces/*/reports/*'], deny: ['~/.ssh/*', '~/.aws/*', '~/.clawhive/secrets/*'] },
+        network: { allowHosts: ['api.stripe.com', 'api.quickbooks.com', '*.freshbooks.com'], denyHosts: [] },
+        execution: { shell: 'deny', code: 'allow' },
+      }),
+    },
+    {
+      id: 'security-agent',
+      name: 'Security Agent',
+      default_level: 'high',
+      permissions: JSON.stringify({
+        tools: {
+          'fs.read': 'allow',
+          'fs.write': 'prompt',
+          'fs.unlink': 'prompt',
+          'child_process.spawn': 'prompt',
+          'http.request': 'prompt',
+          'audit.log': 'allow',
+          'security.scan': 'allow',
+          'policy.check': 'allow',
+        },
+        files: { read: ['~/.clawhive/*', '/var/log/*'], write: ['~/.clawhive/audit/*'], deny: [] },
+        network: { allowHosts: [], denyHosts: ['*.internal', 'localhost:*'] },
+        execution: { shell: 'prompt', code: 'prompt' },
+      }),
+    },
+    {
+      id: 'individual-agent',
+      name: 'Individual Agent',
+      default_level: 'medium',
+      permissions: JSON.stringify({
+        tools: {
+          'fs.read': 'allow',
+          'fs.write': 'prompt',
+          'fs.unlink': 'deny',
+          'child_process.spawn': 'deny',
+          'http.request': 'allow',
+          'chat.send': 'allow',
+          'task.update': 'allow',
+        },
+        files: { read: ['~/.clawhive/workspaces/*'], write: ['~/.clawhive/workspaces/*'], deny: ['~/.ssh/*', '~/.aws/*', '~/.clawhive/secrets/*'] },
+        network: { allowHosts: ['api.anthropic.com', 'api.openai.com', 'localhost:11434'], denyHosts: [] },
+        execution: { shell: 'deny', code: 'allow' },
+      }),
+    },
+  ]
+
+  for (const role of defaultRoles) {
+    database.run(
+      'INSERT INTO roles (id, name, default_level, permissions) VALUES (?, ?, ?, ?)',
+      [role.id, role.name, role.default_level, role.permissions]
+    )
+  }
 }
 
 /**
@@ -599,5 +712,100 @@ export function deleteWorkspace(id: string): void {
   if (!db) throw new Error('Database not initialized')
 
   db.run('DELETE FROM workspaces WHERE id = ?', [id])
+  saveDatabase().catch(console.error)
+}
+
+// Role operations (Security Core)
+export interface DbRole {
+  id: string
+  name: string
+  default_level: 'high' | 'medium' | 'low'
+  permissions: string // JSON string
+}
+
+export function listRoles(): DbRole[] {
+  if (!db) throw new Error('Database not initialized')
+
+  const stmt = db.prepare('SELECT * FROM roles ORDER BY name ASC')
+  const results: DbRole[] = []
+
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbRole)
+  }
+  stmt.free()
+
+  return results
+}
+
+export function getRole(id: string): DbRole | null {
+  if (!db) throw new Error('Database not initialized')
+
+  const stmt = db.prepare('SELECT * FROM roles WHERE id = ?')
+  stmt.bind([id])
+
+  let result: DbRole | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbRole
+  }
+  stmt.free()
+
+  return result
+}
+
+export function getRoleByName(name: string): DbRole | null {
+  if (!db) throw new Error('Database not initialized')
+
+  const stmt = db.prepare('SELECT * FROM roles WHERE name = ?')
+  stmt.bind([name])
+
+  let result: DbRole | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbRole
+  }
+  stmt.free()
+
+  return result
+}
+
+export function createRole(role: DbRole): void {
+  if (!db) throw new Error('Database not initialized')
+
+  db.run(
+    'INSERT INTO roles (id, name, default_level, permissions) VALUES (?, ?, ?, ?)',
+    [role.id, role.name, role.default_level, role.permissions]
+  )
+
+  saveDatabase().catch(console.error)
+}
+
+export function updateRole(id: string, updates: Partial<Omit<DbRole, 'id'>>): void {
+  if (!db) throw new Error('Database not initialized')
+
+  const fields: string[] = []
+  const values: (string | null)[] = []
+
+  if (updates.name !== undefined) {
+    fields.push('name = ?')
+    values.push(updates.name)
+  }
+  if (updates.default_level !== undefined) {
+    fields.push('default_level = ?')
+    values.push(updates.default_level)
+  }
+  if (updates.permissions !== undefined) {
+    fields.push('permissions = ?')
+    values.push(updates.permissions)
+  }
+
+  if (fields.length === 0) return
+
+  db.run(`UPDATE roles SET ${fields.join(', ')} WHERE id = ?`, [...values, id])
+  saveDatabase().catch(console.error)
+}
+
+export function deleteRole(id: string): void {
+  if (!db) throw new Error('Database not initialized')
+
+  db.run('DELETE FROM roles WHERE id = ?', [id])
   saveDatabase().catch(console.error)
 }

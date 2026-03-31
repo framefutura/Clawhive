@@ -12,16 +12,60 @@ import type {
   isSensitiveOperation,
   getRoleProfile,
 } from '../common/security.js'
+import {
+  getPrivacyGuard,
+  detectSuspicious,
+  evaluateSuspiciousSignals,
+  type SuspiciousSignals,
+} from './privacy-guard.js'
 
 export class SecurityManager {
   private approvalCallbacks: Map<string, (approved: boolean) => void> = new Map()
-  private activityLog: Array<{ timestamp: number; action: string; decision: SecurityDecision }> = []
+  private activityLog: Array<{
+    timestamp: number
+    action: string
+    decision: SecurityDecision
+    metadata?: Record<string, unknown>
+  }> = []
 
   /**
    * Evaluate an action against the role's permission matrix and security level
    */
   evaluateAction(level: SecurityLevel, role: RoleProfile, action: ActionRequest): SecurityDecision {
-    // Step 1: Check permission matrix first (deterministic)
+    // Step 0: Check file path against Privacy Guard for file operations
+    if (action.type === 'file' && action.path) {
+      const privacyGuard = getPrivacyGuard()
+      const pathCheck = privacyGuard.checkPath(
+        action.path,
+        action.operation === 'write' ? 'write' : 'read'
+      )
+
+      if (!pathCheck.allowed) {
+        const decision: SecurityDecision = {
+          allowed: false,
+          reason: pathCheck.reason || 'Path blocked by Privacy Guard',
+          requiresApproval: false,
+        }
+        this.logActivity(action, decision, { blockedPath: action.path })
+        return decision
+      }
+    }
+
+    // Step 1: Check for suspicious patterns
+    const suspiciousSignals = detectSuspicious(action)
+    const suspiciousCheck = evaluateSuspiciousSignals(suspiciousSignals, level)
+
+    if (suspiciousCheck.blocked) {
+      const decision: SecurityDecision = {
+        allowed: false,
+        reason: suspiciousCheck.reason || 'Suspicious activity detected',
+        requiresApproval: false,
+      }
+      this.logActivity(action, decision, { suspiciousSignals })
+      return decision
+    }
+
+    // Step 2: Check permission matrix first (deterministic)
     const matrixDecision = this.checkPermissionMatrix(role, action)
 
     if (matrixDecision === 'deny') {
@@ -89,10 +133,17 @@ export class SecurityManager {
   }
 
   /**
-   * Check if an action is sensitive (requires extra scrutiny)
+   * Check for suspicious patterns in an action
    */
-  isSensitive(action: ActionRequest): boolean {
-    return isSensitiveOperation(action)
+  detectSuspicious(action: ActionRequest): SuspiciousSignals {
+    return detectSuspicious(action)
+  }
+
+  /**
+   * Get Privacy Guard instance for path checking
+   */
+  getPrivacyGuard() {
+    return getPrivacyGuard()
   }
 
   /**
@@ -265,11 +316,16 @@ export class SecurityManager {
   /**
    * Log security activity
    */
-  private logActivity(action: ActionRequest, decision: SecurityDecision): void {
+  private logActivity(
+    action: ActionRequest,
+    decision: SecurityDecision,
+    metadata?: Record<string, unknown>
+  ): void {
     this.activityLog.push({
       timestamp: Date.now(),
       action: JSON.stringify(action),
       decision,
+      metadata,
     })
 
     // Keep log size manageable (last 1000 entries)
@@ -281,7 +337,12 @@ export class SecurityManager {
   /**
    * Get activity log (for audit purposes)
    */
-  getActivityLog(): Array<{ timestamp: number; action: string; decision: SecurityDecision }> {
+  getActivityLog(): Array<{
+    timestamp: number
+    action: string
+    decision: SecurityDecision
+    metadata?: Record<string, unknown>
+  }> {
     return [...this.activityLog]
   }
 

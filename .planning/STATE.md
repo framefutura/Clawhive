@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed Plan 03-02: Privacy Guard"
-last_updated: "2026-03-31T01:43:00Z"
+stopped_at: "Completed Plan 03-03: Sandboxed Bridge"
+last_updated: "2026-03-31T02:10:00Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 23
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # ClawHive Project State
@@ -17,16 +17,16 @@ progress:
 **Project:** ClawHive
 **Status:** Executing Phase 03
 **Current_phase:** 03-security-core
-**Current_plan:** 03-02
+**Current_plan:** 03-03
 **Last_completed:** 2026-03-31
 
 ## Progress
 
 Phase 1: 100% (5/5 plans complete)
 Phase 2: 100% (4/4 plans complete) — 02-01, 02-02, 02-03, 02-04 done
-Phase 3: 40% (2/5 plans complete) — 03-01, 03-02 done, 03-03, 03-04, 03-05 pending
+Phase 3: 60% (3/5 plans complete) — 03-01, 03-02, 03-03 done, 03-04, 03-05 pending
 Phases 4-6: Planned
-Overall: 10/23 plans complete
+Overall: 11/23 plans complete
 
 ## Milestones
 
@@ -51,6 +51,38 @@ Overall: 10/23 plans complete
 | Plan 02-04 complete | done | 2026-03-30 |
 | Plan 03-01 complete | done | 2026-03-31 |
 | Plan 03-02 complete | done | 2026-03-31 |
+| Plan 03-03 complete | done | 2026-03-31 |
+
+## Decisions
+
+- Added @vitejs/plugin-react for JSX transform (not in original plan)
+- Added "type": "module" to desktop package.json for ESM compatibility
+- IPC channels follow domain:action naming convention
+- Electron security defaults: contextIsolation=true, nodeIntegration=false, sandbox=true
+- Created renderer types.ts mirror of main/session.ts types (separate tsconfig boundary)
+- Fixed tsconfig.node.json rootDir from src/main to src for preload inclusion
+- Used AES-CBC (crypto-js default) instead of GCM -- crypto-js does not support GCM mode
+- sql.js WASM locateFile resolves from package path in dev/test, from resourcesPath in production
+- electron-store for lightweight config, SQLite for structured data (sessions, messages, agents)
+- Auto-save on every write with fire-and-forget pattern
+- Simplified renderer tests to unit tests (avoiding jsdom complexity in Electron context)
+- Separate vitest configs for main (node) and renderer (node for now) processes
+- Gateway tests use mocking to avoid actual process spawning
+- **NEW** Roadmap expanded to 6 phases: Foundation → Workspace & Control Plane → Security → Multi-Agent → Advanced → Polish
+- **NEW** Multi-company deferred to v2 (tenant isolation too complex for MVP)
+- **NEW** External agent adapters (Claude Code, Codex) deferred to v2; A2A message bus预留 in Phase 4
+- **NEW** Browser integration uses Electron BrowserView (not \<webview\>) for better isolation
+- **NEW** Format plugin architecture established for MD/PDF/DOCX/XLSX with media extensibility hooks
+- **NEW** Security decisions enforced in code, never in prompts (deterministic policy enforcement)
+- **NEW** Permission matrix architecture with allow/deny/prompt tristate
+- **NEW** Privacy Guard pattern: separate layer for path-level security enforcement
+- **NEW** Safe zones: workspace dirs auto-safe, user-defined zones configurable
+- **NEW** Suspicious pattern detection: heuristic-based security signals
+- **NEW** Activity log: immutable append-only audit trail in SQLite
+- **NEW** SandboxedBridge: child process isolation for shell execution with 30s timeout
+- **NEW** Circuit breakers: 100 call limit, loop detection, 10min cumulative time limit
+- **NEW** Deny-by-default tool permissions: all tools denied, explicit enablement required
+- **NEW** Tool danger levels: safe/caution/dangerous with different enablement requirements
 
 ## Artifacts
 
@@ -107,17 +139,18 @@ Overall: 10/23 plans complete
 | 02-03 | 45min | 5 | 13 |
 | Phase 02 P02-02 | 18m | 5 tasks | 12 files |
 | Phase 03-security-core P03-02 | 35min | 3 tasks | 6 files |
+| Phase 03-security-core P03-03 | 20min | 3 tasks | 3 files |
 
 ## Session
 
-**Last session:** 2026-03-31T01:00:00Z
-**Stopped at:** Completed Plan 03-02: Privacy Guard
+**Last session:** 2026-03-31T02:00:00Z
+**Stopped at:** Completed Plan 03-03: Sandboxed Bridge
 
 ## Next Steps
 
-Plan 03-02 (Privacy Guard) is now complete. Ready for Plan 03-03:
+Plan 03-03 (Sandboxed Bridge) is now complete. Ready for Plan 03-04:
 
-- 03-03: Approval Gates — UI for security approvals, timeout handling, escalation
+- 03-04: Approval Gates — UI for security approvals, timeout handling, escalation
 
 To continue:
 

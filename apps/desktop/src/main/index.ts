@@ -38,6 +38,7 @@ import { BrowserManager } from './browser-manager.js'
 import { PlaywrightBridge } from './playwright-bridge.js'
 import { getPrivacyGuard } from './privacy-guard.js'
 import { getSandboxedBridge } from './sandboxed-bridge.js'
+import { getToolRegistry, type AgentToolPermission } from './tool-registry.js'
 import type { TabRecord, TabType } from './common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
 import Store from 'electron-store'
@@ -232,6 +233,7 @@ ipcMain.handle('agent:create', (_, agent: {
   model: string
   apiKey?: string
   genes?: string[]
+  tools?: AgentToolPermission[]
 }) => {
   const id = crypto.randomUUID()
   createAgent({
@@ -250,6 +252,20 @@ ipcMain.handle('agent:create', (_, agent: {
     }
   }
 
+  // Set tool permissions (deny-by-default with role presets)
+  const toolRegistry = getToolRegistry()
+  let permissions: AgentToolPermission[]
+
+  if (agent.tools && agent.tools.length > 0) {
+    // Use explicitly provided tools
+    permissions = agent.tools
+  } else {
+    // Use role preset (only safe tools pre-allowed)
+    permissions = toolRegistry.getRolePresetPermissions(agent.role)
+  }
+
+  toolRegistry.setAgentPermissions(id, permissions)
+
   return { id, ...agent }
 })
 
@@ -259,6 +275,42 @@ ipcMain.handle('agent:list', () => {
 
 ipcMain.handle('agent:genes', (_, agentId: string) => {
   return getAgentGenes(agentId)
+})
+
+// IPC Handlers - Tool Registry
+ipcMain.handle('tools:list', () => {
+  const registry = getToolRegistry()
+  return registry.getAllTools()
+})
+
+ipcMain.handle('tools:forPicker', (_, agentId?: string) => {
+  const registry = getToolRegistry()
+  return registry.getToolsForPicker(agentId)
+})
+
+ipcMain.handle('tools:getAgentPermissions', (_, agentId: string) => {
+  const registry = getToolRegistry()
+  return registry.getAgentPermissions(agentId)
+})
+
+ipcMain.handle('tools:enable', (_, agentId: string, toolName: string, permission: 'allow' | 'prompt' = 'allow') => {
+  const registry = getToolRegistry()
+  return registry.enableTool(agentId, toolName, permission)
+})
+
+ipcMain.handle('tools:disable', (_, agentId: string, toolName: string) => {
+  const registry = getToolRegistry()
+  return registry.disableTool(agentId, toolName)
+})
+
+ipcMain.handle('tools:canEnable', (_, agentId: string, toolName: string, securityLevel: 'high' | 'medium' | 'low', role: string) => {
+  const registry = getToolRegistry()
+  return registry.canEnableTool(agentId, toolName, securityLevel, role)
+})
+
+ipcMain.handle('tools:validateDangerous', (_, toolName: string, securityLevel: 'high' | 'medium' | 'low', userExplicitlyEnabled: boolean) => {
+  const registry = getToolRegistry()
+  return registry.validateDangerousToolEnablement(toolName, securityLevel, userExplicitlyEnabled)
 })
 
 // IPC Handlers - Config (persist to both store and database)

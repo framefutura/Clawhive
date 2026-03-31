@@ -3,30 +3,30 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed Plan 03-04: Approval Gates"
-last_updated: "2026-03-31T11:20:00.000Z"
+stopped_at: "Completed Plan 03-05: Security Documentation"
+last_updated: "2026-03-31T12:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 3
   total_plans: 24
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # ClawHive Project State
 
 **Project:** ClawHive
-**Status:** Executing Phase 03
-**Current_phase:** 03-security-core
-**Current_plan:** 03-04
+**Status:** Phase 3 Complete — Ready for Phase 04
+**Current_phase:** 03-security-core (COMPLETE)
+**Next_phase:** 04-multi-agent
 **Last_completed:** 2026-03-31
 
 ## Progress
 
 Phase 1: 100% (5/5 plans complete)
 Phase 2: 100% (4/4 plans complete) — 02-01, 02-02, 02-03, 02-04 done
-Phase 3: 80% (4/5 plans complete) — 03-01, 03-02, 03-03, 03-04 done, 03-05 pending
+Phase 3: 100% (5/5 plans complete) — 03-01, 03-02, 03-03, 03-04, 03-05 done
 Phases 4-6: Planned
-Overall: 12/23 plans complete
+Overall: 13/24 plans complete
 
 ## Milestones
 
@@ -53,6 +53,7 @@ Overall: 12/23 plans complete
 | Plan 03-02 complete | done | 2026-03-31 |
 | Plan 03-03 complete | done | 2026-03-31 |
 | Plan 03-04 complete | done | 2026-03-31 |
+| Plan 03-05 complete | done | 2026-03-31 |
 
 ## Decisions
 
@@ -86,6 +87,10 @@ Overall: 12/23 plans complete
 - **NEW** Approval flow: SecurityManager → IPC → Renderer UI → IPC → SecurityManager resolution
 - **NEW** Session security persistence: security_level and role_name stored in SQLite
 - **NEW** Role permissions: JSON string parsed in renderer for SecurityPanel display
+- **NEW** Financial crime detection: gambling/money laundering patterns blocked at all security levels
+- **NEW** Restricted tools: crypto_transfer, payment_process, bank_transfer, gift_card
+- **NEW** Tool blacklist/whitelist: global overrides regardless of agent permissions
+- **NEW** Base64 obfuscation detection: catches encoded injection attempts
 
 ## Artifacts
 
@@ -101,6 +106,10 @@ Overall: 12/23 plans complete
 | Pitfalls research | .planning/research/PITFALLS.md | 511 |
 | Research summary | .planning/research/SUMMARY.md | 168 |
 | Phase 02 research | .planning/phases/02-workspace-control/02-RESEARCH.md | ~170 |
+| Security architecture | docs/security/ARCHITECTURE.md | 346 |
+| Threat model | docs/security/THREAT_MODEL.md | 263 |
+| Security operations | docs/security/OPERATIONS.md | 479 |
+| Integration tests | apps/desktop/src/main/security-integration.test.ts | 510 |
 
 ## Decisions
 
@@ -143,22 +152,36 @@ Overall: 12/23 plans complete
 | Phase 02 P02-02 | 18m | 5 tasks | 12 files |
 | Phase 03-security-core P03-02 | 35min | 3 tasks | 6 files |
 | Phase 03-security-core P03-03 | 20min | 3 tasks | 3 files |
+| Phase 03-security-core P03-05 | 25min | 3 tasks | 4 files |
 
 ## Session
 
-**Last session:** 2026-03-31T02:00:00Z
-**Stopped at:** Completed Plan 03-03: Sandboxed Bridge
+**Last session:** 2026-03-31T12:00:00Z
+**Stopped at:** Completed Plan 03-05: Security Documentation
 
 ## Next Steps
 
-Plan 03-04 (Approval Gates) is now complete. Ready for Plan 03-05:
+**Phase 3 Security Core is COMPLETE.** All security requirements (SEC-01 through SEC-10) have been implemented, documented, and tested.
 
-- 03-05: Security Hardening — Complete SEC-04 through SEC-10, finalize security documentation
+Ready for **Phase 4: Multi-Agent Hierarchy**:
+- 04-01: Parent-Child Agent Relationships
+- 04-02: Sub-Agent Spawning
+- 04-03: Delegation Protocol
+- 04-04: Hierarchical Session Management
+
+Security foundation includes:
+- ✅ Defense-in-depth architecture (Privacy Guard → Security Manager → Sandboxed Bridge)
+- ✅ Permission matrices with allow/deny/prompt tristate
+- ✅ 4 default roles: CEO Agent, CFO Agent, Security Agent, Individual Agent
+- ✅ Circuit breakers (100 call limit, loop detection)
+- ✅ Financial crime detection (gambling/money laundering)
+- ✅ 32 integration tests verifying all security components
+- ✅ Comprehensive documentation (Architecture, Threat Model, Operations)
 
 To continue:
 
 ```
-/gsd:execute-phase 03-security-core
+/gsd:new-milestone 04-multi-agent
 ```
 
 <sub>`/clear` first for fresh context</sub>

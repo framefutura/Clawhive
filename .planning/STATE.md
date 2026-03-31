@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed Plan 03-03: Sandboxed Bridge"
-last_updated: "2026-03-31T02:10:00Z"
+stopped_at: "Completed Plan 03-04: Approval Gates"
+last_updated: "2026-03-31T11:20:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 23
-  completed_plans: 11
+  completed_phases: 1
+  total_plans: 24
+  completed_plans: 12
 ---
 
 # ClawHive Project State
@@ -17,16 +17,16 @@ progress:
 **Project:** ClawHive
 **Status:** Executing Phase 03
 **Current_phase:** 03-security-core
-**Current_plan:** 03-03
+**Current_plan:** 03-04
 **Last_completed:** 2026-03-31
 
 ## Progress
 
 Phase 1: 100% (5/5 plans complete)
 Phase 2: 100% (4/4 plans complete) — 02-01, 02-02, 02-03, 02-04 done
-Phase 3: 60% (3/5 plans complete) — 03-01, 03-02, 03-03 done, 03-04, 03-05 pending
+Phase 3: 80% (4/5 plans complete) — 03-01, 03-02, 03-03, 03-04 done, 03-05 pending
 Phases 4-6: Planned
-Overall: 11/23 plans complete
+Overall: 12/23 plans complete
 
 ## Milestones
 
@@ -52,6 +52,7 @@ Overall: 11/23 plans complete
 | Plan 03-01 complete | done | 2026-03-31 |
 | Plan 03-02 complete | done | 2026-03-31 |
 | Plan 03-03 complete | done | 2026-03-31 |
+| Plan 03-04 complete | done | 2026-03-31 |
 
 ## Decisions
 
@@ -82,7 +83,9 @@ Overall: 11/23 plans complete
 - **NEW** SandboxedBridge: child process isolation for shell execution with 30s timeout
 - **NEW** Circuit breakers: 100 call limit, loop detection, 10min cumulative time limit
 - **NEW** Deny-by-default tool permissions: all tools denied, explicit enablement required
-- **NEW** Tool danger levels: safe/caution/dangerous with different enablement requirements
+- **NEW** Approval flow: SecurityManager → IPC → Renderer UI → IPC → SecurityManager resolution
+- **NEW** Session security persistence: security_level and role_name stored in SQLite
+- **NEW** Role permissions: JSON string parsed in renderer for SecurityPanel display
 
 ## Artifacts
 
@@ -148,9 +151,9 @@ Overall: 11/23 plans complete
 
 ## Next Steps
 
-Plan 03-03 (Sandboxed Bridge) is now complete. Ready for Plan 03-04:
+Plan 03-04 (Approval Gates) is now complete. Ready for Plan 03-05:
 
-- 03-04: Approval Gates — UI for security approvals, timeout handling, escalation
+- 03-05: Security Hardening — Complete SEC-04 through SEC-10, finalize security documentation
 
 To continue:
 

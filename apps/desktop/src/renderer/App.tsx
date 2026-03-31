@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar'
 import { Blackboard } from './components/Blackboard'
 import { ChatView } from './components/ChatView'
 import { Settings } from './components/Settings'
+import { SecurityPanel } from './components/SecurityPanel'
 import { FirstLaunchWizard } from './components/FirstLaunchWizard'
 import { FileManager } from './components/FileManager'
 import { BrowserToolbar } from './components/BrowserToolbar'
@@ -18,6 +19,7 @@ import { useGateway } from './hooks/useGateway'
 import type { Provider } from './components/ModelPicker'
 import type { GeneCategory } from './types'
 import type { TabType } from '../common/tab'
+import type { SecurityLevel, PermissionMatrix } from '../common/security'
 import './styles/shadcn-variables.css'
 
 // Sample gene categories for sidebar
@@ -38,6 +40,33 @@ const SAMPLE_ACTIVE_GENES: { category: GeneCategory; name: string }[] = [
   { category: 'data', name: 'Data Analysis' },
   { category: 'comm', name: 'Summarization' },
 ]
+
+// Sample permissions for security panel (would come from role in production)
+const SAMPLE_PERMISSIONS: PermissionMatrix = {
+  tools: {
+    'fs.read': 'allow',
+    'fs.write': 'allow',
+    'fs.unlink': 'prompt',
+    'child_process.spawn': 'prompt',
+    'http.request': 'allow',
+    'agent.delegate': 'allow',
+    'task.create': 'allow',
+    'task.assign': 'allow',
+  },
+  files: {
+    read: ['~/.clawhive/workspaces/*', '~/Documents/*'],
+    write: ['~/.clawhive/workspaces/*'],
+    deny: ['~/.ssh/*', '~/.aws/*', '~/.clawhive/secrets/*'],
+  },
+  network: {
+    allowHosts: ['*'],
+    denyHosts: [],
+  },
+  execution: {
+    shell: 'prompt',
+    code: 'allow',
+  },
+}
 
 export default function App() {
   const { connected } = useGateway()
@@ -91,6 +120,8 @@ export default function App() {
 
   // UI state
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [securityPanelOpen, setSecurityPanelOpen] = useState(false)
+  const [securityLevel, setSecurityLevel] = useState<SecurityLevel>('medium')
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
 
   // Browser state
@@ -427,6 +458,19 @@ export default function App() {
                       <span className="text-sm font-medium">{activeTab.title}</span>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSecurityPanelOpen(true)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs rounded hover:bg-muted transition-colors"
+                        title="Security Settings"
+                      >
+                        <span className={cn(
+                          "w-2 h-2 rounded-full",
+                          securityLevel === 'high' ? "bg-red-500" :
+                          securityLevel === 'medium' ? "bg-yellow-500" :
+                          "bg-green-500"
+                        )} />
+                        <span className="capitalize">{securityLevel}</span>
+                      </button>
                       <span className={cn(
                         "text-xs",
                         connected ? "text-green-500" : "text-muted-foreground"
@@ -548,6 +592,15 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
           storagePath={storagePath}
           onStoragePathChange={setStoragePath}
+        />
+
+        <SecurityPanel
+          open={securityPanelOpen}
+          onClose={() => setSecurityPanelOpen(false)}
+          role={agents.find(a => a.id === activeAgentId)?.role || 'Individual Agent'}
+          level={securityLevel}
+          onChangeLevel={setSecurityLevel}
+          permissions={SAMPLE_PERMISSIONS}
         />
       </div>
 

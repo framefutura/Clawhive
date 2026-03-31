@@ -24,6 +24,8 @@ import {
   addSafeZone as addDbSafeZone,
   removeSafeZone as removeDbSafeZone,
   getActivityLog,
+  listRoles,
+  updateSessionSecurity,
   type StorageConfig,
 } from './storage.js'
 import { tabDb } from './tabs.js'
@@ -159,12 +161,14 @@ ipcMain.handle('gateway:disconnect', () => {
 ipcMain.handle('session:create', (_, agentId: string, modelConfig: ModelConfig, genes?: string[]) => {
   const session = sessionStore.create(agentId, modelConfig, genes)
 
-  // Also save to database
+  // Also save to database with default security level
   createSession({
     id: session.id,
     agent_id: agentId,
     provider: modelConfig.provider,
     model: modelConfig.model,
+    security_level: 'medium',
+    role_name: null,
   })
 
   return session
@@ -177,6 +181,18 @@ ipcMain.handle('session:list', () => {
 ipcMain.handle('session:delete', (_, sessionId: string) => {
   sessionStore.delete(sessionId)
   deleteSession(sessionId)
+})
+
+ipcMain.handle(
+  'session:security:update',
+  (_, sessionId: string, securityLevel: 'high' | 'medium' | 'low', roleName: string) => {
+    updateSessionSecurity(sessionId, securityLevel, roleName)
+    return true
+  }
+)
+
+ipcMain.handle('security:roles:list', () => {
+  return listRoles()
 })
 
 // IPC Handlers - Chat (persist messages)

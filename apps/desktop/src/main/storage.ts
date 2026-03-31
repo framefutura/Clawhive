@@ -51,6 +51,8 @@ function initSchema(database: typeof db) {
       agent_id TEXT NOT NULL,
       provider TEXT NOT NULL,
       model TEXT NOT NULL,
+      security_level TEXT NOT NULL DEFAULT 'medium' CHECK(security_level IN ('high', 'medium', 'low')),
+      role_name TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -332,6 +334,8 @@ export interface DbSession {
   agent_id: string
   provider: string
   model: string
+  security_level: 'high' | 'medium' | 'low'
+  role_name: string | null
   created_at: number
   updated_at: number
 }
@@ -341,8 +345,8 @@ export function createSession(session: Omit<DbSession, 'created_at' | 'updated_a
 
   const now = Date.now()
   db.run(
-    'INSERT INTO sessions (id, agent_id, provider, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [session.id, session.agent_id, session.provider, session.model, now, now]
+    'INSERT INTO sessions (id, agent_id, provider, model, security_level, role_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [session.id, session.agent_id, session.provider, session.model, session.security_level ?? 'medium', session.role_name ?? null, now, now]
   )
 
   // Auto-save after write
@@ -361,6 +365,21 @@ export function getSessions(): DbSession[] {
   stmt.free()
 
   return results
+}
+
+export function updateSessionSecurity(
+  sessionId: string,
+  securityLevel: 'high' | 'medium' | 'low',
+  roleName: string
+): void {
+  if (!db) throw new Error('Database not initialized')
+
+  db.run(
+    'UPDATE sessions SET security_level = ?, role_name = ?, updated_at = ? WHERE id = ?',
+    [securityLevel, roleName, Date.now(), sessionId]
+  )
+
+  saveDatabase().catch(console.error)
 }
 
 export function deleteSession(id: string): void {
@@ -545,8 +564,22 @@ export async function runMigrations(): Promise<void> {
   const version = getConfig('schema_version') || '0'
   const currentVersion = parseInt(version, 10)
 
-  // Future migrations go here
-  // if (currentVersion < 1) { ... }
+  if (currentVersion < 1) {
+    // Migration 1: Add security_level and role_name to sessions table
+    const sessionColumns = db.exec('PRAGMA table_info(sessions)')[0]?.values ?? []
+    const hasSecurityLevel = sessionColumns.some((column) => column[1] === 'security_level')
+    const hasRoleName = sessionColumns.some((column) => column[1] === 'role_name')
+
+    if (!hasSecurityLevel) {
+      db.run(
+        "ALTER TABLE sessions ADD COLUMN security_level TEXT NOT NULL DEFAULT 'medium' CHECK(security_level IN ('high', 'medium', 'low'))"
+      )
+    }
+
+    if (!hasRoleName) {
+      db.run('ALTER TABLE sessions ADD COLUMN role_name TEXT')
+    }
+  }
 
   setConfig('schema_version', '1')
 }

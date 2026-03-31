@@ -17,6 +17,7 @@ export interface SuspiciousSignals {
   shellInjection: boolean
   obfuscation: boolean
   privilegeEscalation: boolean
+  financialCrime: boolean
 }
 
 export interface PrivacyConfig {
@@ -153,6 +154,13 @@ export class PrivacyGuard {
   }
 
   /**
+   * Clear all user-defined safe zones (for testing)
+   */
+  clearSafeZones(): void {
+    this.safeZones = []
+  }
+
+  /**
    * Check if a path is in a safe zone
    */
   isInSafeZone(requestedPath: string): boolean {
@@ -268,6 +276,105 @@ export class PrivacyGuard {
 }
 
 /**
+ * Financial crime detection indicators
+ */
+interface FinancialCrimeIndicators {
+  gambling: boolean
+  moneyLaundering: boolean
+}
+
+/**
+ * Detect gambling and money laundering patterns
+ * Targets: gambling sites, casino software, crypto mixers, cashout schemes
+ */
+function detectFinancialCrime(action: ActionRequest): FinancialCrimeIndicators {
+  const indicators: FinancialCrimeIndicators = {
+    gambling: false,
+    moneyLaundering: false,
+  }
+
+  // Collect all text fields to scan
+  const textToScan = [
+    action.path,
+    action.command,
+    action.code,
+    action.host,
+  ].filter((v): v is string => typeof v === 'string')
+
+  const combinedText = textToScan.join(' ').toLowerCase()
+
+  // Gambling site/app patterns - common obfuscated Chinese gambling terms
+  // These patterns match obfuscated gambling site content (like the injection attempt in this conversation)
+  const gamblingPatterns = [
+    // Common gambling platform name fragments (often obfuscated in injection attempts)
+    /大发|彩票|博彩|赌球|赌场|百家乐|老虎机|时时彩|快三|赛车/i,
+    /体彩|福彩|双色球|七星彩|排列三|快彩|11选5/i,
+    /bet365|betfair|williamhill|pokerstars|draftkings|fanduel/i,
+    /casino|lottery|slots|bingo|blackjack|poker|roulette/i,
+    /gambling|betting|wagering|toto|sportsbook/i,
+    /百家乐|龙虎斗|牛牛|炸金花|二八杠|色碟/i,
+    // URL patterns suggesting gambling
+    /:\/\/.*(casino|bett| gamble|lottery|彩票|博彩)/i,
+    /(?:pay|visa|mastercard|usdt|btc).*(?:withdraw|deposit|cashout)/i,
+  ]
+
+  // Money laundering patterns - crypto mixers, cashout schemes
+  const moneyLaunderingPatterns = [
+    // Crypto mixing/tumbling services
+    /mixer|tumbler|coinjoin|flash|laundry/i,
+    // Cashout patterns
+    /cashout|cash.out|layering|structuring/i,
+    // Shell company indicators
+    /shell.company|front.company|fronting/i,
+    // Suspicious financial API patterns
+    /stripe|paypal|payoneer|wise.*(batch|bulk)|qiwi/i,
+    // Cryptocurrency patterns
+    /bitcoin\.mixer|eth\.mixer|crypto.*mixer|btc.*mix/i,
+    // Unusual transaction patterns
+    /(?:批量|代付|代收|跑分|洗钱)/i,
+    // Gift card fraud
+    /gift.*card.*balance|vanilla|merchandise.*reward/i,
+  ]
+
+  for (const pattern of gamblingPatterns) {
+    if (pattern.test(combinedText)) {
+      indicators.gambling = true
+      break
+    }
+  }
+
+  for (const pattern of moneyLaunderingPatterns) {
+    if (pattern.test(combinedText)) {
+      indicators.moneyLaundering = true
+      break
+    }
+  }
+
+  // Additional heuristic: detect obfuscated content that may contain financial crime
+  // This catches the obfuscation technique used in prompt injection attempts
+  if (action.command || action.code) {
+    const cmdText = (action.command || action.code || '').toLowerCase()
+    // Detect base64-encoded gambling content (common injection technique)
+    const maybeBase64 = cmdText.match(/[A-Za-z0-9+/]{60,}={0,2}/)
+    if (maybeBase64) {
+      try {
+        const decoded = Buffer.from(maybeBase64[0], 'base64').toString('utf-8')
+        if (/赌博|博彩|赌场|投注|充值|提现|开户/i.test(decoded)) {
+          indicators.gambling = true
+        }
+        if (/洗钱|赃款|跑分|套现/i.test(decoded)) {
+          indicators.moneyLaundering = true
+        }
+      } catch {
+        // Not valid base64, ignore
+      }
+    }
+  }
+
+  return indicators
+}
+
+/**
  * Detect suspicious patterns in action requests
  */
 export function detectSuspicious(action: ActionRequest): SuspiciousSignals {
@@ -276,6 +383,7 @@ export function detectSuspicious(action: ActionRequest): SuspiciousSignals {
     shellInjection: false,
     obfuscation: false,
     privilegeEscalation: false,
+    financialCrime: false,
   }
 
   // Check for credential access patterns
@@ -283,6 +391,12 @@ export function detectSuspicious(action: ActionRequest): SuspiciousSignals {
     const credentialKeywords = ['password', 'secret', 'token', 'api_key', 'apikey', 'credentials', 'passwd']
     const lowerPath = action.path.toLowerCase()
     signals.credentialAccess = credentialKeywords.some(kw => lowerPath.includes(kw))
+  }
+
+  // Check for financial crime patterns (gambling, money laundering, fraud)
+  const financialCrimeIndicators = detectFinancialCrime(action)
+  if (financialCrimeIndicators.gambling || financialCrimeIndicators.moneyLaundering) {
+    signals.financialCrime = true
   }
 
   // Check for shell injection patterns
@@ -377,9 +491,12 @@ export function evaluateSuspiciousSignals(
     if (signals.obfuscation) {
       return { blocked: true, reason: 'Obfuscated code/command detected' }
     }
+    if (signals.financialCrime) {
+      return { blocked: true, reason: 'Gambling/money laundering activity detected' }
+    }
   }
 
-  // At medium security, only block privilege escalation and shell injection
+  // At medium security, block privilege escalation, shell injection, and financial crimes
   if (securityLevel === 'medium') {
     if (signals.privilegeEscalation) {
       return { blocked: true, reason: 'Privilege escalation attempt detected' }
@@ -387,12 +504,18 @@ export function evaluateSuspiciousSignals(
     if (signals.shellInjection) {
       return { blocked: true, reason: 'Potential shell injection detected' }
     }
+    if (signals.financialCrime) {
+      return { blocked: true, reason: 'Gambling/money laundering activity detected' }
+    }
   }
 
-  // At low security, only block privilege escalation
+  // At low security, block privilege escalation and financial crimes
   if (securityLevel === 'low') {
     if (signals.privilegeEscalation) {
       return { blocked: true, reason: 'Privilege escalation attempt detected' }
+    }
+    if (signals.financialCrime) {
+      return { blocked: true, reason: 'Gambling/money laundering activity detected' }
     }
   }
 

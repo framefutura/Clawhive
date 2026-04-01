@@ -201,6 +201,69 @@ ipcMain.handle('security:approval-resolve', (_, approvalId: string, approved: bo
   return true
 })
 
+// IPC Handlers - Sensitive Data Authorization
+ipcMain.handle('sensitive:createAuthRequest', (_, agentId: string, action: import('./common/security.js').ActionRequest, purpose?: string) => {
+  const { getAuthorizationManager } = require('./authorization-manager.js')
+  return getAuthorizationManager().createAuthRequest(action, agentId, undefined, purpose)
+})
+
+ipcMain.handle('sensitive:getRequest', (_, requestId: string) => {
+  const { getAuthorizationManager } = require('./authorization-manager.js')
+  return getAuthorizationManager().getAuthRequest(requestId)
+})
+
+ipcMain.handle('sensitive:listPending', () => {
+  const { getAuthorizationManager } = require('./authorization-manager.js')
+  return getAuthorizationManager().getPendingRequests()
+})
+
+ipcMain.handle('sensitive:approve', async (_, requestId: string, approverId: string) => {
+  const { getAuthorizationManager } = require('./authorization-manager.js')
+  return getAuthorizationManager().approve(requestId, approverId)
+})
+
+ipcMain.handle('sensitive:deny', (_, requestId: string, deniedBy: string, reason: string) => {
+  const { getAuthorizationManager } = require('./authorization-manager.js')
+  return getAuthorizationManager().deny(requestId, deniedBy, reason)
+})
+
+ipcMain.handle('sensitive:getReport', (_, reportId: string) => {
+  const { getAuthorizationManager } = require('./authorization-manager.js')
+  return getAuthorizationManager().getExecutionReport(reportId)
+})
+
+ipcMain.handle('sensitive:getStats', () => {
+  const { getAuthorizationManager } = require('./authorization-manager.js')
+  return getAuthorizationManager().getStats()
+})
+
+// IPC Handlers - Threat Analysis
+ipcMain.handle('threat:analyze', async (_, action: import('./common/security.js').ActionRequest) => {
+  const { getThreatAnalyzer } = require('./threat-analyzer.js')
+  return getThreatAnalyzer().analyzeActionSuspicion(action)
+})
+
+ipcMain.handle('threat:analyzeFile', async (_, filePath: string) => {
+  const { getThreatAnalyzer } = require('./threat-analyzer.js')
+  return getThreatAnalyzer().analyzeForMalware(filePath)
+})
+
+ipcMain.handle('threat:analyzeToolChain', (_, tools: string[]) => {
+  const { getThreatAnalyzer } = require('./threat-analyzer.js')
+  return getThreatAnalyzer().analyzeToolChain(tools)
+})
+
+// IPC Handlers - Sandbox Management
+ipcMain.handle('sandbox:status', (_, sandboxId: string) => {
+  const { getSandboxManager } = require('./sandbox-manager.js')
+  return getSandboxManager().getSandboxStatus(sandboxId)
+})
+
+ipcMain.handle('sandbox:stats', () => {
+  const { getSandboxManager } = require('./sandbox-manager.js')
+  return getSandboxManager().getStats()
+})
+
 // IPC Handlers - Chat (persist messages)
 ipcMain.handle('chat:send', async (_, sessionId: string, content: string) => {
   // Add user message to memory and database
@@ -256,15 +319,39 @@ ipcMain.handle('agent:create', (_, agent: {
   apiKey?: string
   genes?: string[]
   tools?: AgentToolPermission[]
+  parentId?: string
+  department?: string
+  team?: string
+  defaultSecurityLevel?: string
 }) => {
   const id = crypto.randomUUID()
+
+  // Set tool permissions (deny-by-default with role presets)
+  const toolRegistry = getToolRegistry()
+  let permissions: AgentToolPermission[]
+
+  if (agent.tools && agent.tools.length > 0) {
+    permissions = agent.tools
+  } else {
+    permissions = toolRegistry.getRolePresetPermissions(agent.role)
+  }
+  toolRegistry.setAgentPermissions(id, permissions)
+
+  const allowedTools = permissions.filter(p => p.allowed).map(p => p.toolId)
+
   createAgent({
     id,
     name: agent.name,
     role: agent.role,
+    parentId: agent.parentId,
+    department: agent.department,
+    team: agent.team,
+    genes: agent.genes ?? [],
     provider: agent.provider,
     model: agent.model,
-    api_key: agent.apiKey,
+    apiKey: agent.apiKey,
+    allowedTools,
+    defaultSecurityLevel: agent.defaultSecurityLevel ?? 'medium',
   })
 
   // Load genes if provided
@@ -273,20 +360,6 @@ ipcMain.handle('agent:create', (_, agent: {
       loadGene(id, geneId)
     }
   }
-
-  // Set tool permissions (deny-by-default with role presets)
-  const toolRegistry = getToolRegistry()
-  let permissions: AgentToolPermission[]
-
-  if (agent.tools && agent.tools.length > 0) {
-    // Use explicitly provided tools
-    permissions = agent.tools
-  } else {
-    // Use role preset (only safe tools pre-allowed)
-    permissions = toolRegistry.getRolePresetPermissions(agent.role)
-  }
-
-  toolRegistry.setAgentPermissions(id, permissions)
 
   return { id, ...agent }
 })
@@ -589,7 +662,7 @@ ipcMain.handle('privacy:settings:get', () => {
   return getPrivacySettings()
 })
 
-ipcMain.handle('privacy:settings:set', (_, settings: { safeZones: string[] }) => {
+ipcMain.handle('privacy:settings:set', (_, settings: { safeZones: string[]; sensitiveDataTypes?: Record<string, boolean> }) => {
   setPrivacySettings(settings)
   // Update the privacy guard singleton
   const guard = getPrivacyGuard()

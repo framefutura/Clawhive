@@ -50,6 +50,10 @@ interface ClawHiveAPI {
     model: string
     apiKey?: string
     genes?: string[]
+    parentId?: string
+    department?: string
+    team?: string
+    defaultSecurityLevel?: string
   }) => Promise<{ id: string }>
   getAgents: () => Promise<unknown[]>
   getAgentGenes: (agentId: string) => Promise<string[]>

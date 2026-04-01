@@ -46,6 +46,10 @@ const api = {
     model: string
     apiKey?: string
     genes?: string[]
+    parentId?: string
+    department?: string
+    team?: string
+    defaultSecurityLevel?: string
   }) => ipcRenderer.invoke('agent:create', agent),
   getAgents: () => ipcRenderer.invoke('agent:list'),
   getAgentGenes: (agentId: string) => ipcRenderer.invoke('agent:genes', agentId),
@@ -157,7 +161,7 @@ const api = {
 
   // Privacy Guard
   getPrivacySettings: () => ipcRenderer.invoke('privacy:settings:get'),
-  setPrivacySettings: (settings: { safeZones: string[] }) =>
+  setPrivacySettings: (settings: { safeZones: string[]; sensitiveDataTypes?: Record<string, boolean> }) =>
     ipcRenderer.invoke('privacy:settings:set', settings),
   addSafeZone: (path: string) => ipcRenderer.invoke('privacy:safeZone:add', path),
   removeSafeZone: (path: string) => ipcRenderer.invoke('privacy:safeZone:remove', path),
@@ -175,6 +179,43 @@ const api = {
   },
   resolveSecurityApproval: (approvalId: string, approved: boolean) =>
     ipcRenderer.invoke('security:approval-resolve', approvalId, approved),
+
+  // Sensitive Data Authorization
+  createSensitiveAuthRequest: (agentId: string, action: unknown, purpose?: string) =>
+    ipcRenderer.invoke('sensitive:createAuthRequest', agentId, action, purpose),
+  getSensitiveAuthRequest: (requestId: string) =>
+    ipcRenderer.invoke('sensitive:getRequest', requestId),
+  listPendingSensitiveAuth: () =>
+    ipcRenderer.invoke('sensitive:listPending'),
+  approveSensitiveAuth: (requestId: string, approverId: string) =>
+    ipcRenderer.invoke('sensitive:approve', requestId, approverId),
+  denySensitiveAuth: (requestId: string, deniedBy: string, reason: string) =>
+    ipcRenderer.invoke('sensitive:deny', requestId, deniedBy, reason),
+  getSensitiveReport: (reportId: string) =>
+    ipcRenderer.invoke('sensitive:getReport', reportId),
+  getSensitiveStats: () =>
+    ipcRenderer.invoke('sensitive:getStats'),
+
+  // Threat Analysis
+  analyzeThreat: (action: unknown) =>
+    ipcRenderer.invoke('threat:analyze', action),
+  analyzeFileThreat: (filePath: string) =>
+    ipcRenderer.invoke('threat:analyzeFile', filePath),
+  analyzeToolChainThreat: (tools: string[]) =>
+    ipcRenderer.invoke('threat:analyzeToolChain', tools),
+
+  // Sandbox
+  getSandboxStatus: (sandboxId: string) =>
+    ipcRenderer.invoke('sandbox:status', sandboxId),
+  getSandboxStats: () =>
+    ipcRenderer.invoke('sandbox:stats'),
+
+  // Security Alerts
+  onSecurityAlert: (callback: (alert: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, data: unknown) => callback(data)
+    ipcRenderer.on('security:alert', listener)
+    return () => ipcRenderer.removeListener('security:alert', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

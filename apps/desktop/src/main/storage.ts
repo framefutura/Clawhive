@@ -87,15 +87,22 @@ function initSchema(database: typeof db) {
     CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      role TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('CEO', 'CFO', 'COO', 'Department Head', 'Team Leader', 'Individual Agent')),
+      parentId TEXT REFERENCES agents(id) ON DELETE SET NULL,
+      department TEXT,
+      team TEXT,
+      genes TEXT NOT NULL DEFAULT '[]',
       provider TEXT NOT NULL,
       model TEXT NOT NULL,
-      api_key_encrypted TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      apiKey TEXT,
+      allowedTools TEXT NOT NULL DEFAULT '[]',
+      defaultSecurityLevel TEXT NOT NULL DEFAULT 'medium',
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_agents_created ON agents(created_at);
+    CREATE INDEX IF NOT EXISTS idx_agents_created ON agents(createdAt);
+    CREATE INDEX IF NOT EXISTS idx_agents_parent ON agents(parentId);
 
     -- DeskClaw Gene System Tables
     CREATE TABLE IF NOT EXISTS agent_genes (
@@ -173,6 +180,61 @@ function initSchema(database: typeof db) {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
+    );
+
+    -- Sensitive Data Authorization: Authorization requests
+    CREATE TABLE IF NOT EXISTS sensitive_auth_requests (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      sensitive_types TEXT NOT NULL,
+      purpose TEXT,
+      tools_involved TEXT NOT NULL,
+      privacy_risk TEXT,
+      malware_check TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      approved_by TEXT,
+      approved_at INTEGER,
+      denied_by TEXT,
+      denied_at INTEGER,
+      denied_reason TEXT,
+      request_data TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sensitive_auth_agent ON sensitive_auth_requests(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_sensitive_auth_status ON sensitive_auth_requests(status);
+
+    -- Execution Reports
+    CREATE TABLE IF NOT EXISTS execution_reports (
+      id TEXT PRIMARY KEY,
+      auth_request_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      action_summary TEXT NOT NULL,
+      sensitive_types TEXT NOT NULL,
+      tools_used TEXT NOT NULL,
+      data_access_log TEXT NOT NULL,
+      tool_execution_log TEXT NOT NULL,
+      risk_events TEXT,
+      warnings TEXT,
+      data_wiped INTEGER NOT NULL DEFAULT 0,
+      wiped_at INTEGER,
+      summary TEXT NOT NULL,
+      duration INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_execution_reports_request ON execution_reports(auth_request_id);
+    CREATE INDEX IF NOT EXISTS idx_execution_reports_agent ON execution_reports(agent_id);
+
+    -- Sensitive Type Registry
+    CREATE TABLE IF NOT EXISTS sensitive_type_registry (
+      id TEXT PRIMARY KEY,
+      type_name TEXT NOT NULL,
+      pattern TEXT NOT NULL,
+      risk_level TEXT NOT NULL,
+      created_at INTEGER NOT NULL
     );
   `)
 
@@ -432,26 +494,38 @@ export interface DbAgent {
   id: string
   name: string
   role: string
+  parentId?: string
+  department?: string
+  team?: string
+  genes: string[]
   provider: string
   model: string
-  api_key?: string
-  created_at: number
-  updated_at: number
+  apiKey?: string
+  allowedTools: string[]
+  defaultSecurityLevel: string
+  createdAt: number
+  updatedAt: number
 }
 
-export function createAgent(agent: Omit<DbAgent, 'created_at' | 'updated_at'>): void {
+export function createAgent(agent: Omit<DbAgent, 'createdAt' | 'updatedAt'>): void {
   if (!db) throw new Error('Database not initialized')
 
   const now = Date.now()
   db.run(
-    'INSERT INTO agents (id, name, role, provider, model, api_key_encrypted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO agents (id, name, role, parentId, department, team, genes, provider, model, apiKey, allowedTools, defaultSecurityLevel, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       agent.id,
       agent.name,
       agent.role,
+      agent.parentId ?? null,
+      agent.department ?? null,
+      agent.team ?? null,
+      JSON.stringify(agent.genes ?? []),
       agent.provider,
       agent.model,
-      agent.api_key ? encryptString(agent.api_key) : null,
+      agent.apiKey ? encryptString(agent.apiKey) : null,
+      JSON.stringify(agent.allowedTools ?? []),
+      agent.defaultSecurityLevel ?? 'medium',
       now,
       now,
     ]
@@ -460,10 +534,109 @@ export function createAgent(agent: Omit<DbAgent, 'created_at' | 'updated_at'>): 
   saveDatabase().catch(console.error)
 }
 
+export function updateAgent(id: string, updates: Partial<Omit<DbAgent, 'id'>>): void {
+  if (!db) throw new Error('Database not initialized')
+
+  const fields: string[] = []
+  const values: (string | null)[] = []
+
+  if (updates.name !== undefined) {
+    fields.push('name = ?')
+    values.push(updates.name)
+  }
+  if (updates.role !== undefined) {
+    fields.push('role = ?')
+    values.push(updates.role)
+  }
+  if (updates.parentId !== undefined) {
+    fields.push('parentId = ?')
+    values.push(updates.parentId)
+  }
+  if (updates.department !== undefined) {
+    fields.push('department = ?')
+    values.push(updates.department)
+  }
+  if (updates.team !== undefined) {
+    fields.push('team = ?')
+    values.push(updates.team)
+  }
+  if (updates.genes !== undefined) {
+    fields.push('genes = ?')
+    values.push(JSON.stringify(updates.genes))
+  }
+  if (updates.provider !== undefined) {
+    fields.push('provider = ?')
+    values.push(updates.provider)
+  }
+  if (updates.model !== undefined) {
+    fields.push('model = ?')
+    values.push(updates.model)
+  }
+  if (updates.apiKey !== undefined) {
+    fields.push('apiKey = ?')
+    values.push(updates.apiKey ? encryptString(updates.apiKey) : null)
+  }
+  if (updates.allowedTools !== undefined) {
+    fields.push('allowedTools = ?')
+    values.push(JSON.stringify(updates.allowedTools))
+  }
+  if (updates.defaultSecurityLevel !== undefined) {
+    fields.push('defaultSecurityLevel = ?')
+    values.push(updates.defaultSecurityLevel)
+  }
+
+  if (fields.length === 0) return
+
+  fields.push('updatedAt = ?')
+  values.push(Date.now().toString())
+  values.push(id)
+
+  db.run(`UPDATE agents SET ${fields.join(', ')} WHERE id = ?`, values)
+  saveDatabase().catch(console.error)
+}
+
+export function deleteAgent(id: string): void {
+  if (!db) throw new Error('Database not initialized')
+
+  db.run('DELETE FROM agents WHERE id = ?', [id])
+  saveDatabase().catch(console.error)
+}
+
+export function getAgentById(id: string): DbAgent | null {
+  if (!db) throw new Error('Database not initialized')
+
+  const stmt = db.prepare('SELECT * FROM agents WHERE id = ?')
+  stmt.bind([id])
+
+  let result: DbAgent | null = null
+  if (stmt.step()) {
+    const row = stmt.getAsObject() as Record<string, unknown>
+    result = {
+      id: row.id as string,
+      name: row.name as string,
+      role: row.role as string,
+      parentId: row.parentId as string | undefined,
+      department: row.department as string | undefined,
+      team: row.team as string | undefined,
+      genes: JSON.parse((row.genes as string) || '[]'),
+      provider: row.provider as string,
+      model: row.model as string,
+      apiKey: row.apiKey ? decryptString(row.apiKey as string) : undefined,
+      allowedTools: JSON.parse((row.allowedTools as string) || '[]'),
+      defaultSecurityLevel: (row.defaultSecurityLevel as string) || 'medium',
+      createdAt: row.createdAt as number,
+      updatedAt: row.updatedAt as number,
+    }
+  }
+  stmt.free()
+
+  return result
+}
+
 export function getAgents(): DbAgent[] {
   if (!db) throw new Error('Database not initialized')
 
-  const stmt = db.prepare('SELECT * FROM agents ORDER BY created_at DESC')
+  const stmt = db.prepare('SELECT * FROM agents ORDER BY createdAt DESC')
   const results: DbAgent[] = []
 
   while (stmt.step()) {
@@ -472,11 +645,17 @@ export function getAgents(): DbAgent[] {
       id: row.id as string,
       name: row.name as string,
       role: row.role as string,
+      parentId: row.parentId as string | undefined,
+      department: row.department as string | undefined,
+      team: row.team as string | undefined,
+      genes: JSON.parse((row.genes as string) || '[]'),
       provider: row.provider as string,
       model: row.model as string,
-      api_key: row.api_key_encrypted ? decryptString(row.api_key_encrypted as string) : undefined,
-      created_at: row.created_at as number,
-      updated_at: row.updated_at as number,
+      apiKey: row.apiKey ? decryptString(row.apiKey as string) : undefined,
+      allowedTools: JSON.parse((row.allowedTools as string) || '[]'),
+      defaultSecurityLevel: (row.defaultSecurityLevel as string) || 'medium',
+      createdAt: row.createdAt as number,
+      updatedAt: row.updatedAt as number,
     })
   }
   stmt.free()
@@ -581,7 +760,56 @@ export async function runMigrations(): Promise<void> {
     }
   }
 
-  setConfig('schema_version', '1')
+  if (currentVersion < 2) {
+    // Migration 2: Expand agents table for hierarchy and permissions
+    const agentColumns = db.exec('PRAGMA table_info(agents)')[0]?.values ?? []
+    const hasParentId = agentColumns.some((column) => column[1] === 'parentId')
+    const hasApiKey = agentColumns.some((column) => column[1] === 'apiKey')
+
+    if (!hasParentId && !hasApiKey) {
+      // Old schema with snake_case columns; migrate to new schema
+      db.run('PRAGMA foreign_keys = OFF')
+      db.run(`
+        CREATE TABLE agents_new (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('CEO', 'CFO', 'COO', 'Department Head', 'Team Leader', 'Individual Agent')),
+          parentId TEXT REFERENCES agents_new(id) ON DELETE SET NULL,
+          department TEXT,
+          team TEXT,
+          genes TEXT NOT NULL DEFAULT '[]',
+          provider TEXT NOT NULL,
+          model TEXT NOT NULL,
+          apiKey TEXT,
+          allowedTools TEXT NOT NULL DEFAULT '[]',
+          defaultSecurityLevel TEXT NOT NULL DEFAULT 'medium',
+          createdAt INTEGER NOT NULL,
+          updatedAt INTEGER NOT NULL
+        )
+      `)
+      db.run(`
+        INSERT INTO agents_new
+        SELECT id, name, role, NULL, NULL, NULL, '[]', provider, model, api_key_encrypted, '[]', 'medium', created_at, updated_at
+        FROM agents
+      `)
+      db.run('DROP TABLE agents')
+      db.run('ALTER TABLE agents_new RENAME TO agents')
+      db.run('CREATE INDEX idx_agents_created ON agents(createdAt)')
+      db.run('CREATE INDEX idx_agents_parent ON agents(parentId)')
+      db.run('PRAGMA foreign_keys = ON')
+    } else if (!hasParentId) {
+      // Partial new schema; add missing columns
+      db.run("ALTER TABLE agents ADD COLUMN parentId TEXT REFERENCES agents(id) ON DELETE SET NULL")
+      db.run('ALTER TABLE agents ADD COLUMN department TEXT')
+      db.run('ALTER TABLE agents ADD COLUMN team TEXT')
+      db.run("ALTER TABLE agents ADD COLUMN genes TEXT NOT NULL DEFAULT '[]'")
+      db.run("ALTER TABLE agents ADD COLUMN allowedTools TEXT NOT NULL DEFAULT '[]'")
+      db.run("ALTER TABLE agents ADD COLUMN defaultSecurityLevel TEXT NOT NULL DEFAULT 'medium'")
+      db.run('CREATE INDEX IF NOT EXISTS idx_agents_parent ON agents(parentId)')
+    }
+  }
+
+  setConfig('schema_version', '2')
 }
 
 // Tab operations
@@ -998,17 +1226,23 @@ export function clearActivityLog(): void {
 // Privacy Settings operations
 export interface PrivacySettings {
   safeZones: string[]
+  sensitiveDataTypes?: Record<string, boolean>
 }
 
 export function getPrivacySettings(): PrivacySettings {
   const safeZonesValue = getConfig('privacy_safe_zones')
+  const sensitiveTypesValue = getConfig('privacy_sensitive_types')
   return {
     safeZones: safeZonesValue ? JSON.parse(safeZonesValue) : [],
+    sensitiveDataTypes: sensitiveTypesValue ? JSON.parse(sensitiveTypesValue) : undefined,
   }
 }
 
 export function setPrivacySettings(settings: PrivacySettings): void {
   setConfig('privacy_safe_zones', JSON.stringify(settings.safeZones))
+  if (settings.sensitiveDataTypes !== undefined) {
+    setConfig('privacy_sensitive_types', JSON.stringify(settings.sensitiveDataTypes))
+  }
 }
 
 export function addSafeZone(safeZone: string): void {

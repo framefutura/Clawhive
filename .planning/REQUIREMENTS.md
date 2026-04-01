@@ -48,18 +48,55 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Multi-Agent Core (Phase 4)
 
-- [ ] **AGENT-01**: User can create agents with custom roles and responsibilities
-- [ ] **AGENT-02**: User can organize agents in hierarchy (CEO/CFO/COO → Dept → Team → Agent)
-- [ ] **AGENT-03**: Agents can delegate tasks down the hierarchy
-- [ ] **AGENT-04**: Team-level agents share memory and files
-- [ ] **AGENT-05**: Sub-agents can collaborate with selective conversation sharing
-- [ ] **AGENT-06**: Each agent has isolated session storage (~/.clawhive/agents/<id>/)
-- [ ] **AGENT-07**: Agent registry supports CRUD operations for agent management
-- [ ] **AGENT-08**: Task router assigns tasks based on role and workload
-- [ ] **AGENT-09**: Users can assign tasks to single agent, multiple agents, or team
-- [ ] **AGENT-10**: Visual org tree displays hierarchy structure in left pane
-- [ ] **AGENT-11**: Swarm view shows real-time team collaboration status
-- [ ] **AGENT-12**: Progress view tracks task completion across agents
+#### Agent Registry
+
+- [ ] **AGENT-01**: User can create agents with custom roles, responsibilities, and rich identity docs (soul.md, heartbeat.md, tools.md, agents.md)
+- [ ] **AGENT-02**: User can organize agents in configurable-depth hierarchy (CEO/CFO/COO → Dept → Team → Agent)
+- [ ] **AGENT-03**: 7 predefined role templates (CEO, CFO, COO, Dept Head, Team Leader, Individual Agent, Secretary) — each with explicit functions, org structure, decision-making authority, job duties
+- [ ] **AGENT-04**: Agent lifecycle: persistent, ephemeral, or user-chooses-per-agent
+- [ ] **AGENT-05**: Agent CRUD (create, read, update, delete, archive)
+- [ ] **AGENT-06**: Agent role permissions inherit/override Phase 3 Security Core roles (SEC-08)
+- [ ] **AGENT-07**: Interactive org tree displays hierarchy in left pane with live status overlay (busy/idle/error)
+- [ ] **AGENT-08**: Org tree supports all 3 view modes: hierarchical tree, company org chart, teams+flat-roles
+- [ ] **AGENT-09**: Drag-drop reparenting across all 3 org modes with cycle detection
+- [ ] **AGENT-10**: User can add/remove per-agent customizations: skills, knowledge docs, MCP servers, CLI tools, document references, tools
+- [ ] **AGENT-11**: Secretary agent bridges top leader to user — acts as full agent in hierarchy AND system-level approval interface
+- [ ] **AGENT-12**: CEO agent defined as self-improving overseer of entire company and all sub-agents
+- [ ] **AGENT-13**: User can edit all 7 predefined role templates: modify soul.md, heartbeat.md, tools.md, agents.md, interaction.md
+- [ ] **AGENT-14**: User can edit all agent-specific docs: soul.md, heartbeat.md, tools.md, agents.md, interaction.md
+- [ ] **AGENT-15**: Agent interaction editor panel (Paperclip-style): split-pane (file list + editor with live preview), tabbed (one doc at a time), and card-based (expandable inline with full-screen modal for deep editing)
+
+#### Task Router
+
+- [ ] **AGENT-16**: Per-agent configurable heartbeat intervals with skip-if-busy guard (sql.js WASM constraint)
+- [ ] **AGENT-17**: Parent auto-delegation routes tasks down hierarchy by default
+- [ ] **AGENT-18**: User override: pick specific agent or assign task to team for collaboration
+- [ ] **AGENT-19**: Workload balancing distributes tasks across sub-agents based on availability
+- [ ] **AGENT-20**: Delegation chains carry originatingSecurityLevel; child execution capped at min(parentLevel, childLevel)
+
+#### Team Manager
+
+- [ ] **AGENT-21**: Agent isolated storage: ~/.clawhive/agents/<id>/; Team shared storage: ~/.clawhive/teams/<team-id>/
+- [ ] **AGENT-22**: Hybrid shared+private memory: team has shared files/summary + each agent has private context
+- [ ] **AGENT-23**: Selective conversation sharing: agents can share specific messages/threads with team peers
+- [ ] **AGENT-24**: Team agents can collaborate on shared tasks with pooled context
+- [ ] **AGENT-25**: Leaders monitor subagent work and correct errors/issues proactively
+- [ ] **AGENT-26**: Leaders coach subagents for future improvement (feedback loops)
+- [ ] **AGENT-27**: Full OKR system: leaders set goals, track key results, periodic reviews visible in leader dashboard
+
+#### Agent Messaging
+
+- [ ] **AGENT-28**: Direct A2A messaging: agents send structured prompts for task handoffs, discussions, suggestions
+- [ ] **AGENT-29**: Leader-to-leader A2A: any leader can message any other leader across branches
+- [ ] **AGENT-30**: Requests and decisions route to immediate leader (leader approval required)
+- [ ] **AGENT-31**: Superior leader approval chain for escalated decisions
+- [ ] **AGENT-32**: Configurable escalation paths: CEO can route to secretary or user directly depending on decision type (user configures per category)
+- [ ] **AGENT-33**: Secretary agent as configurable bridge: receives top-level escalations, formats for user, relays decisions back
+- [ ] **AGENT-34**: Leader message hub: full visibility into team-wide communications + per-agent message view
+- [ ] **AGENT-35**: Self-improvement and coaching flows route through leadership hierarchy
+- [ ] **AGENT-36**: Message bus 6-stage pipeline: validation → content filter → rate limit → routing → circuit breaker → audit
+- [ ] **AGENT-37**: All A2A messages scanned by PrivacyGuard.detectSuspicious() before delivery
+- [ ] **AGENT-38**: Subagent can ask parent agent when stuck or lacking knowledge — parent responds with guidance
 
 ### Advanced Features (Phase 5)
 
@@ -177,6 +214,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGENT-10 | Phase 4 | Pending |
 | AGENT-11 | Phase 4 | Pending |
 | AGENT-12 | Phase 4 | Pending |
+| AGENT-13 | Phase 4 | Pending |
+| AGENT-14 | Phase 4 | Pending |
+| AGENT-15 | Phase 4 | Pending |
+| AGENT-16 | Phase 4 | Pending |
+| AGENT-17 | Phase 4 | Pending |
+| AGENT-18 | Phase 4 | Pending |
+| AGENT-19 | Phase 4 | Pending |
+| AGENT-20 | Phase 4 | Pending |
+| AGENT-21 | Phase 4 | Pending |
+| AGENT-22 | Phase 4 | Pending |
+| AGENT-23 | Phase 4 | Pending |
+| AGENT-24 | Phase 4 | Pending |
+| AGENT-25 | Phase 4 | Pending |
+| AGENT-26 | Phase 4 | Pending |
+| AGENT-27 | Phase 4 | Pending |
+| AGENT-28 | Phase 4 | Pending |
+| AGENT-29 | Phase 4 | Pending |
+| AGENT-30 | Phase 4 | Pending |
+| AGENT-31 | Phase 4 | Pending |
+| AGENT-32 | Phase 4 | Pending |
+| AGENT-33 | Phase 4 | Pending |
+| AGENT-34 | Phase 4 | Pending |
+| AGENT-35 | Phase 4 | Pending |
+| AGENT-36 | Phase 4 | Pending |
+| AGENT-37 | Phase 4 | Pending |
+| AGENT-38 | Phase 4 | Pending |
 | ADV-01 | Phase 5 | Pending |
 | ADV-02 | Phase 5 | Pending |
 | ADV-03 | Phase 5 | Pending |
@@ -200,10 +263,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POL-09 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 51 total
-- Mapped to phases: 51
+- v1 requirements: 89 total (28 complete, 61 pending)
+- Mapped to phases: 89
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-28*
-*Last updated: 2026-03-28 after research synthesis*
+*Last updated: 2026-03-31 after v1.1 milestone start (Phase 4 refined)*

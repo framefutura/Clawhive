@@ -202,44 +202,44 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-08 | Phase 3 | Complete |
 | SEC-09 | Phase 3 | Complete |
 | SEC-10 | Phase 3 | Complete |
-| AGENT-01 | Phase 4 | Pending |
-| AGENT-02 | Phase 4 | Pending |
-| AGENT-03 | Phase 4 | Pending |
-| AGENT-04 | Phase 4 | Pending |
-| AGENT-05 | Phase 4 | Pending |
-| AGENT-06 | Phase 4 | Pending |
-| AGENT-07 | Phase 4 | Pending |
-| AGENT-08 | Phase 4 | Pending |
-| AGENT-09 | Phase 4 | Pending |
-| AGENT-10 | Phase 4 | Pending |
-| AGENT-11 | Phase 4 | Pending |
-| AGENT-12 | Phase 4 | Pending |
-| AGENT-13 | Phase 4 | Pending |
-| AGENT-14 | Phase 4 | Pending |
-| AGENT-15 | Phase 4 | Pending |
-| AGENT-16 | Phase 4 | Pending |
-| AGENT-17 | Phase 4 | Pending |
-| AGENT-18 | Phase 4 | Pending |
-| AGENT-19 | Phase 4 | Pending |
-| AGENT-20 | Phase 4 | Pending |
-| AGENT-21 | Phase 4 | Pending |
-| AGENT-22 | Phase 4 | Pending |
-| AGENT-23 | Phase 4 | Pending |
-| AGENT-24 | Phase 4 | Pending |
-| AGENT-25 | Phase 4 | Pending |
-| AGENT-26 | Phase 4 | Pending |
-| AGENT-27 | Phase 4 | Pending |
-| AGENT-28 | Phase 4 | Pending |
-| AGENT-29 | Phase 4 | Pending |
-| AGENT-30 | Phase 4 | Pending |
-| AGENT-31 | Phase 4 | Pending |
-| AGENT-32 | Phase 4 | Pending |
-| AGENT-33 | Phase 4 | Pending |
-| AGENT-34 | Phase 4 | Pending |
-| AGENT-35 | Phase 4 | Pending |
-| AGENT-36 | Phase 4 | Pending |
-| AGENT-37 | Phase 4 | Pending |
-| AGENT-38 | Phase 4 | Pending |
+| AGENT-01 | Phase 4.01 + 4.02 | Pending |
+| AGENT-02 | Phase 4.02 | Pending |
+| AGENT-03 | Phase 4.01 | Pending |
+| AGENT-04 | Phase 4.01 | Pending |
+| AGENT-05 | Phase 4.01 | Pending |
+| AGENT-06 | Phase 4.01 | Pending |
+| AGENT-07 | Phase 4.02 | Pending |
+| AGENT-08 | Phase 4.02 | Pending |
+| AGENT-09 | Phase 4.02 | Pending |
+| AGENT-10 | Phase 4.02 | Pending |
+| AGENT-11 | Phase 4.02 | Pending |
+| AGENT-12 | Phase 4.02 | Pending |
+| AGENT-13 | Phase 4.02 | Pending |
+| AGENT-14 | Phase 4.02 | Pending |
+| AGENT-15 | Phase 4.02 | Pending |
+| AGENT-16 | Phase 4.03 | Pending |
+| AGENT-17 | Phase 4.03 | Pending |
+| AGENT-18 | Phase 4.03 | Pending |
+| AGENT-19 | Phase 4.03 | Pending |
+| AGENT-20 | Phase 4.03 | Pending |
+| AGENT-21 | Phase 4.01 + 4.04 | Pending |
+| AGENT-22 | Phase 4.04 | Pending |
+| AGENT-23 | Phase 4.04 | Pending |
+| AGENT-24 | Phase 4.04 | Pending |
+| AGENT-25 | Phase 4.04 | Pending |
+| AGENT-26 | Phase 4.04 | Pending |
+| AGENT-27 | Phase 4.04 | Pending |
+| AGENT-28 | Phase 4.05 | Pending |
+| AGENT-29 | Phase 4.05 | Pending |
+| AGENT-30 | Phase 4.06 | Pending |
+| AGENT-31 | Phase 4.06 | Pending |
+| AGENT-32 | Phase 4.06 | Pending |
+| AGENT-33 | Phase 4.06 | Pending |
+| AGENT-34 | Phase 4.06 | Pending |
+| AGENT-35 | Phase 4.07 | Pending |
+| AGENT-36 | Phase 4.05 + 4.07 | Pending |
+| AGENT-37 | Phase 4.07 | Pending |
+| AGENT-38 | Phase 4.07 | Pending |
 | ADV-01 | Phase 5 | Pending |
 | ADV-02 | Phase 5 | Pending |
 | ADV-03 | Phase 5 | Pending |
@@ -264,9 +264,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 **Coverage:**
 - v1 requirements: 89 total (28 complete, 61 pending)
+- Phase 4 requirements: 38 (0 complete, 38 pending across 7 sub-plans)
 - Mapped to phases: 89
-- Unmapped: 0 ✓
+- Unmapped: 0
+
+**Phase 4 Requirement Distribution:**
+
+| Plan | Requirements | Count |
+|------|-------------|-------|
+| 04-01 | AGENT-01(partial), AGENT-03, AGENT-04, AGENT-05, AGENT-06, AGENT-21(partial) | 6 |
+| 04-02 | AGENT-01(partial), AGENT-02, AGENT-07 to AGENT-15 | 11 |
+| 04-03 | AGENT-16 to AGENT-20 | 5 |
+| 04-04 | AGENT-21(partial), AGENT-22 to AGENT-27 | 7 |
+| 04-05 | AGENT-28, AGENT-29, AGENT-36(partial) | 3 |
+| 04-06 | AGENT-30 to AGENT-34 | 5 |
+| 04-07 | AGENT-35, AGENT-36(partial), AGENT-37, AGENT-38 | 4 |
 
 ---
+
 *Requirements defined: 2026-03-28*
-*Last updated: 2026-03-31 after v1.1 milestone start (Phase 4 refined)*
+*Last updated: 2026-03-31 — Phase 4 expanded to 7 sub-plans (04-01 through 04-07)*

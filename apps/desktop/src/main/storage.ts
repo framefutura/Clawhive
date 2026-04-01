@@ -182,6 +182,30 @@ function initSchema(database: typeof db) {
       updated_at INTEGER NOT NULL
     );
 
+    -- Team System Tables
+    CREATE TABLE IF NOT EXISTS teams (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      leader_id TEXT NOT NULL,
+      department TEXT,
+      workspace_id TEXT,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_teams_leader ON teams(leader_id);
+
+    CREATE TABLE IF NOT EXISTS team_members (
+      team_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      joined_at INTEGER NOT NULL,
+      PRIMARY KEY (team_id, agent_id),
+      FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
+    CREATE INDEX IF NOT EXISTS idx_team_members_agent ON team_members(agent_id);
+
     -- Sensitive Data Authorization: Authorization requests
     CREATE TABLE IF NOT EXISTS sensitive_auth_requests (
       id TEXT PRIMARY KEY,
@@ -660,6 +684,100 @@ export function getAgents(): DbAgent[] {
   }
   stmt.free()
 
+  return results
+}
+
+// Team operations
+export interface DbTeam {
+  id: string
+  name: string
+  leader_id: string
+  department?: string
+  workspace_id?: string
+  created_at: number
+}
+
+export interface DbTeamMember {
+  team_id: string
+  agent_id: string
+  joined_at: number
+}
+
+export function createTeam(team: Omit<DbTeam, 'created_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO teams (id, name, leader_id, department, workspace_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [team.id, team.name, team.leader_id, team.department ?? null, team.workspace_id ?? null, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function getTeam(id: string): DbTeam | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM teams WHERE id = ?')
+  stmt.bind([id])
+  let result: DbTeam | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbTeam
+  }
+  stmt.free()
+  return result
+}
+
+export function listTeams(): DbTeam[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM teams ORDER BY created_at DESC')
+  const results: DbTeam[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbTeam)
+  }
+  stmt.free()
+  return results
+}
+
+export function deleteTeam(id: string): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run('DELETE FROM teams WHERE id = ?', [id])
+  saveDatabase().catch(console.error)
+}
+
+export function addTeamMember(teamId: string, agentId: string): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run(
+    'INSERT OR IGNORE INTO team_members (team_id, agent_id, joined_at) VALUES (?, ?, ?)',
+    [teamId, agentId, Date.now()]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function removeTeamMember(teamId: string, agentId: string): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run('DELETE FROM team_members WHERE team_id = ? AND agent_id = ?', [teamId, agentId])
+  saveDatabase().catch(console.error)
+}
+
+export function listTeamMembers(teamId: string): string[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT agent_id FROM team_members WHERE team_id = ?')
+  stmt.bind([teamId])
+  const results: string[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject().agent_id as string)
+  }
+  stmt.free()
+  return results
+}
+
+export function listAgentTeams(agentId: string): string[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT team_id FROM team_members WHERE agent_id = ?')
+  stmt.bind([agentId])
+  const results: string[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject().team_id as string)
+  }
+  stmt.free()
   return results
 }
 

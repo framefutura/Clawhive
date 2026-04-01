@@ -372,6 +372,35 @@ ipcMain.handle('agent:genes', (_, agentId: string) => {
   return getAgentGenes(agentId)
 })
 
+// IPC Handlers - Storage
+import {
+  createAgentStorageDir,
+  createTeamStorageDir,
+  deleteAgentStorageDir,
+  deleteTeamStorageDir,
+  addAgentToTeamStorage,
+} from './agent-storage.js'
+
+ipcMain.handle('storage:agent:create', (_, agentId: string) => {
+  return createAgentStorageDir(agentId)
+})
+
+ipcMain.handle('storage:team:create', (_, teamId: string) => {
+  return createTeamStorageDir(teamId)
+})
+
+ipcMain.handle('storage:team:addAgent', (_, teamId: string, agentId: string) => {
+  return addAgentToTeamStorage(teamId, agentId)
+})
+
+ipcMain.handle('storage:agent:delete', (_, agentId: string) => {
+  return deleteAgentStorageDir(agentId)
+})
+
+ipcMain.handle('storage:team:delete', (_, teamId: string) => {
+  return deleteTeamStorageDir(teamId)
+})
+
 // IPC Handlers - Tool Registry
 ipcMain.handle('tools:list', () => {
   const registry = getToolRegistry()

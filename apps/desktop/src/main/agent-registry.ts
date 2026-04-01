@@ -1,6 +1,3 @@
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import { app } from 'electron'
 import type { AgentRecord, AgentRole } from '../common/agent.js'
 import {
   createAgent as createAgentDb,
@@ -9,6 +6,7 @@ import {
   getAgentById,
   getAgents as getAgentsDb,
 } from './storage.js'
+import { createAgentStorageDir } from './agent-storage.js'
 
 export interface TreeNode<T> {
   data: T
@@ -22,22 +20,6 @@ const HIERARCHY_RULES: Record<AgentRole, AgentRole[] | null> = {
   'Department Head': ['Team Leader'],
   'Team Leader': ['Individual Agent'],
   'Individual Agent': null,
-}
-
-function getUserDataPath(): string {
-  if (typeof app !== 'undefined' && app.getPath) {
-    return app.getPath('userData')
-  }
-  return path.join(process.env.HOME || process.env.USERPROFILE || '.', '.clawhive')
-}
-
-function getAgentStoragePath(agentId: string): string {
-  return path.join(getUserDataPath(), 'agents', agentId)
-}
-
-export async function createAgentStorageDir(agentId: string): Promise<void> {
-  const dir = getAgentStoragePath(agentId)
-  await fs.mkdir(dir, { recursive: true })
 }
 
 export class AgentRegistry {

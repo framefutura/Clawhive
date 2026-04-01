@@ -123,7 +123,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 4. Agent role permissions inherit from Phase 3 Security Core roles (SEC-08); permission changes in Security Core propagate to agent permissions
 5. Agent storage directories are created at ~/.clawhive/agents/<id>/ on agent creation
 
-**Plans:** TBD
+**Plans:** 1 plan
+- [ ] 04-06-PLAN.md — Agent/team storage isolation, teams SQL schema, IPC handlers (AGENT-21 gap closure)
 
 ---
 
@@ -158,7 +159,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 4. Tasks are distributed across available sub-agents based on current workload (number of active tasks, not just idle/busy status)
 5. Delegation chains carry the originatingSecurityLevel from the original task; child agent execution is capped at min(parentLevel, childLevel) at every hop
 
-**Plans:** TBD
+**Plans:** 1 plan
+- [ ] 04-06-PLAN.md — Agent/team storage isolation, teams SQL schema, IPC handlers (AGENT-21 gap closure)
 
 ---
 
@@ -176,7 +178,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 6. Leaders provide structured coaching feedback to sub-agents, forming a continuous improvement loop
 7. User can set OKRs (Objectives and Key Results) per team/agent; periodic reviews are visible in the leader dashboard
 
-**Plans:** TBD
+**Plans:** 1 plan
+- [ ] 04-06-PLAN.md — Agent/team storage isolation, teams SQL schema, IPC handlers (AGENT-21 gap closure)
 
 ---
 
@@ -190,7 +193,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. Any leader agent can send a message to any other leader agent across different organizational branches
 3. Every A2A message traverses the 6-stage message bus pipeline: validation (schema check) → content filter → rate limit → routing → circuit breaker → audit logging, in order
 
-**Plans:** TBD
+**Plans:** 1 plan
+- [ ] 04-06-PLAN.md — Agent/team storage isolation, teams SQL schema, IPC handlers (AGENT-21 gap closure)
 
 ---
 
@@ -206,7 +210,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 4. Secretary agent receives all top-level escalations, formats them for user review, and relays the user's decisions back to the requesting agent
 5. Leaders see a message hub showing all team-wide communications and per-agent message threads; leaders can filter by type (handoff, discussion, suggestion, escalation)
 
-**Plans:** TBD
+**Plans:** 1 plan
+- [ ] 04-06-PLAN.md — Agent/team storage isolation, teams SQL schema, IPC handlers (AGENT-21 gap closure)
 
 ---
 
@@ -221,7 +226,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 3. Self-improvement requests from sub-agents route up the leadership chain (agent → leader → superior) until reaching a level with authority to approve changes
 4. Coaching feedback from leaders (Phase 4.04) is delivered via the A2A message bus and archived in the agent's private context for future reference
 
-**Plans:** TBD
+**Plans:** 1 plan
+- [ ] 04-06-PLAN.md — Agent/team storage isolation, teams SQL schema, IPC handlers (AGENT-21 gap closure)
 
 ---
 

@@ -1,5 +1,17 @@
 # ClawHive
 
+## Current Milestone: v1.1 Multi-Agent Core
+
+**Goal:** Implement hierarchical multi-agent system with CEO-to-agent structure, heartbeat-based task routing, team collaboration, and agent-to-agent prompt delegation
+
+**Target features:**
+- Agent Registry with 6 rich predefined roles (CEO/CFO/COO/Dept Head/Team Leader/Individual Agent) — each with soul.md, heartbeat.md, tools.md, agents.md
+- User-defined hierarchy depth, hybrid agent lifecycle (persistent/ephemeral/user-chooses), interactive org tree with live status overlay
+- Hybrid delegation: parent auto-routes by default, user can override to pick specific agent or assign team collaboration
+- Per-agent configurable heartbeat intervals, workload balancing
+- Team Manager: hybrid shared + private memory, agent + team storage dirs, all 3 org structure modes with drag-drop
+- A2A messaging: direct peer-to-peer for tasks, leader-routed for requests/decisions, leader has full message hub visibility
+
 ## What This Is
 
 ClawHive is a personal AI assistant for macOS with a hierarchical multi-agent system and bank-level security. It features an interactive Electron-based GUI where users can create, manage, and orchestrate teams of AI agents that collaborate on tasks. Agents exist in a company-like hierarchy (CEO/CFO/COO → Department Heads → Team Leaders → Individual Agents) with each level having different permissions and responsibilities.
@@ -76,4 +88,4 @@ Target users: both power users (full control) and general consumers (simplified 
 | Per-task security levels | Different tasks have different risk profiles; user should choose appropriate safety level | — Pending |
 
 ---
-*Last updated: 2026-03-28 after deep questioning phase*
+*Last updated: 2026-03-31 after v1.1 milestone start (Phase 4: Multi-Agent Core)*

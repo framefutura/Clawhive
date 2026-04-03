@@ -1,5 +1,17 @@
 import React, { useState } from 'react'
-import { Pin, PinOff } from 'lucide-react'
+import {
+  Pin,
+  PinOff,
+  FileText,
+  Server,
+  Terminal,
+  BookOpen,
+  Wrench,
+  Link,
+  Clock,
+  Quote,
+  Eye,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AdaptiveTabBar } from './detail/AdaptiveTabBar'
 import type { AgentRecord } from '../../common/agent'
@@ -120,22 +132,146 @@ function ProfileTabContent({ agent }: { agent: AgentRecord }) {
   )
 }
 
-/* ---------- Files tab (placeholder — enriched in Task 2) ---------- */
+/* ---------- Files tab — subject-aware customization areas ---------- */
 
-function FilesTabContent({ agent }: { agent: AgentRecord }) {
+interface CustomizationRowProps {
+  icon: React.ReactNode
+  label: string
+  count: number
+}
+
+function CustomizationRow({ icon, label, count }: CustomizationRowProps) {
   return (
-    <div className="space-y-2 text-xs text-muted-foreground">
-      <p>Agent files surface coming in Task 2.</p>
+    <div className="flex items-center gap-2 rounded border p-2 text-xs">
+      <span className="shrink-0 text-muted-foreground">{icon}</span>
+      <span className="flex-1">{label}</span>
+      <span className="text-muted-foreground tabular-nums">{count}</span>
     </div>
   )
 }
 
-/* ---------- History tab (placeholder — enriched in Task 2) ---------- */
+function FilesTabContent({ agent }: { agent: AgentRecord }) {
+  const c = agent.customizations
+  return (
+    <div className="space-y-3">
+      <div className="text-xs font-medium text-muted-foreground">Customization Areas</div>
+      <div className="space-y-1.5">
+        <CustomizationRow
+          icon={<Wrench className="h-3.5 w-3.5" />}
+          label="skills"
+          count={c.skills.length}
+        />
+        <CustomizationRow
+          icon={<BookOpen className="h-3.5 w-3.5" />}
+          label="knowledgeDocs"
+          count={c.knowledgeDocs.length}
+        />
+        <CustomizationRow
+          icon={<Server className="h-3.5 w-3.5" />}
+          label="mcpServers"
+          count={c.mcpServers.length}
+        />
+        <CustomizationRow
+          icon={<Terminal className="h-3.5 w-3.5" />}
+          label="cliTools"
+          count={c.cliTools.length}
+        />
+        <CustomizationRow
+          icon={<FileText className="h-3.5 w-3.5" />}
+          label="documentRefs"
+          count={c.documentRefs.length}
+        />
+        <CustomizationRow
+          icon={<Link className="h-3.5 w-3.5" />}
+          label="toolRefs"
+          count={c.toolRefs.length}
+        />
+      </div>
+
+      {/* Per-item lists when populated */}
+      {c.skills.length > 0 && (
+        <div className="text-xs">
+          <div className="text-muted-foreground mb-1 font-medium">Skills</div>
+          <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+            {c.skills.map((s) => <li key={s}>{s}</li>)}
+          </ul>
+        </div>
+      )}
+      {c.knowledgeDocs.length > 0 && (
+        <div className="text-xs">
+          <div className="text-muted-foreground mb-1 font-medium">Knowledge Docs</div>
+          <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+            {c.knowledgeDocs.map((d) => <li key={d}>{d}</li>)}
+          </ul>
+        </div>
+      )}
+      {c.mcpServers.length > 0 && (
+        <div className="text-xs">
+          <div className="text-muted-foreground mb-1 font-medium">MCP Servers</div>
+          <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+            {c.mcpServers.map((m) => <li key={m}>{m}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ---------- History tab — placeholder with quick actions ---------- */
+
+interface HistoryItem {
+  id: string
+  label: string
+  timestamp: number
+}
 
 function HistoryTabContent({ agent }: { agent: AgentRecord }) {
+  // Derive minimal history from available agent metadata
+  const items: HistoryItem[] = []
+
+  if (agent.createdAt) {
+    items.push({ id: 'created', label: `${agent.name} created`, timestamp: agent.createdAt })
+  }
+  if (agent.lastActiveAt) {
+    items.push({ id: 'last-active', label: 'Last active', timestamp: agent.lastActiveAt })
+  }
+
   return (
-    <div className="space-y-2 text-xs text-muted-foreground">
-      <p>Agent history surface coming in Task 2.</p>
+    <div className="space-y-3">
+      <div className="text-xs font-medium text-muted-foreground">History</div>
+      {items.length === 0 ? (
+        <div className="text-xs text-muted-foreground">No history entries yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-start gap-2 rounded border p-2 text-xs">
+              <Clock className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="truncate">{item.label}</div>
+                <div className="text-muted-foreground">
+                  {new Date(item.timestamp).toLocaleString()}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  className="p-1 rounded hover:bg-muted transition-colors"
+                  title="Quote"
+                >
+                  <Quote className="h-3 w-3 text-muted-foreground" />
+                </button>
+                <button
+                  type="button"
+                  className="p-1 rounded hover:bg-muted transition-colors"
+                  title="Preview"
+                >
+                  <Eye className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

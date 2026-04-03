@@ -50,7 +50,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 #### Agent Registry
 
-- [ ] **AGENT-01**: User can create agents with custom roles, responsibilities, and rich identity docs (soul.md, heartbeat.md, tools.md, agents.md)
+- [x] **AGENT-01**: User can create agents with custom roles, responsibilities, and rich identity docs (soul.md, heartbeat.md, tools.md, agents.md)
 - [ ] **AGENT-02**: User can organize agents in configurable-depth hierarchy (CEO/CFO/COO → Dept → Team → Agent)
 - [ ] **AGENT-03**: 7 predefined role templates (CEO, CFO, COO, Dept Head, Team Leader, Individual Agent, Secretary) — each with explicit functions, org structure, decision-making authority, job duties
 - [ ] **AGENT-04**: Agent lifecycle: persistent, ephemeral, or user-chooses-per-agent
@@ -60,11 +60,11 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AGENT-08**: Org tree supports all 3 view modes: hierarchical tree, company org chart, teams+flat-roles
 - [x] **AGENT-09**: Drag-drop reparenting across all 3 org modes with cycle detection
 - [x] **AGENT-10**: User can add/remove per-agent customizations: skills, knowledge docs, MCP servers, CLI tools, document references, tools
-- [ ] **AGENT-11**: Secretary agent bridges top leader to user — acts as full agent in hierarchy AND system-level approval interface
-- [ ] **AGENT-12**: CEO agent defined as self-improving overseer of entire company and all sub-agents
-- [ ] **AGENT-13**: User can edit all 7 predefined role templates: modify soul.md, heartbeat.md, tools.md, agents.md, interaction.md
-- [ ] **AGENT-14**: User can edit all agent-specific docs: soul.md, heartbeat.md, tools.md, agents.md, interaction.md
-- [ ] **AGENT-15**: Agent interaction editor panel (Paperclip-style): split-pane (file list + editor with live preview), tabbed (one doc at a time), and card-based (expandable inline with full-screen modal for deep editing)
+- [x] **AGENT-11**: Secretary agent bridges top leader to user — acts as full agent in hierarchy AND system-level approval interface
+- [x] **AGENT-12**: CEO agent defined as self-improving overseer of entire company and all sub-agents
+- [x] **AGENT-13**: User can edit all 7 predefined role templates: modify soul.md, heartbeat.md, tools.md, agents.md, interaction.md
+- [x] **AGENT-14**: User can edit all agent-specific docs: soul.md, heartbeat.md, tools.md, agents.md, interaction.md
+- [x] **AGENT-15**: Agent interaction editor panel (Paperclip-style): split-pane (file list + editor with live preview), tabbed (one doc at a time), and card-based (expandable inline with full-screen modal for deep editing)
 
 #### Task Router
 
@@ -202,7 +202,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-08 | Phase 3 | Complete |
 | SEC-09 | Phase 3 | Complete |
 | SEC-10 | Phase 3 | Complete |
-| AGENT-01 | Phase 4.01 + 4.02 | Pending |
+| AGENT-01 | Phase 4.01 + 4.02 | Complete |
 | AGENT-02 | Phase 4.02 | Pending |
 | AGENT-03 | Phase 4.01 | Pending |
 | AGENT-04 | Phase 4.01 | Pending |
@@ -212,11 +212,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGENT-08 | Phase 4.02 | Pending |
 | AGENT-09 | Phase 4.02 | Complete |
 | AGENT-10 | Phase 4.02 | Complete |
-| AGENT-11 | Phase 4.02 | Pending |
-| AGENT-12 | Phase 4.02 | Pending |
-| AGENT-13 | Phase 4.02 | Pending |
-| AGENT-14 | Phase 4.02 | Pending |
-| AGENT-15 | Phase 4.02 | Pending |
+| AGENT-11 | Phase 4.02 | Complete |
+| AGENT-12 | Phase 4.02 | Complete |
+| AGENT-13 | Phase 4.02 | Complete |
+| AGENT-14 | Phase 4.02 | Complete |
+| AGENT-15 | Phase 4.02 | Complete |
 | AGENT-16 | Phase 4.03 | Pending |
 | AGENT-17 | Phase 4.03 | Pending |
 | AGENT-18 | Phase 4.03 | Pending |

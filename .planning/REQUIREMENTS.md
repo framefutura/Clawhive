@@ -53,9 +53,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **AGENT-01**: User can create agents with custom roles, responsibilities, and rich identity docs (soul.md, heartbeat.md, tools.md, agents.md)
 - [ ] **AGENT-02**: User can organize agents in configurable-depth hierarchy (CEO/CFO/COO → Dept → Team → Agent)
 - [ ] **AGENT-03**: 7 predefined role templates (CEO, CFO, COO, Dept Head, Team Leader, Individual Agent, Secretary) — each with explicit functions, org structure, decision-making authority, job duties
-- [ ] **AGENT-04**: Agent lifecycle: persistent, ephemeral, or user-chooses-per-agent
-- [ ] **AGENT-05**: Agent CRUD (create, read, update, delete, archive)
-- [ ] **AGENT-06**: Agent role permissions inherit/override Phase 3 Security Core roles (SEC-08)
+- [x] **AGENT-04**: Agent lifecycle: persistent, ephemeral, or user-chooses-per-agent
+- [x] **AGENT-05**: Agent CRUD (create, read, update, delete, archive)
+- [x] **AGENT-06**: Agent role permissions inherit/override Phase 3 Security Core roles (SEC-08)
 - [x] **AGENT-07**: Interactive org tree displays hierarchy in left pane with live status overlay (busy/idle/error)
 - [ ] **AGENT-08**: Org tree supports all 3 view modes: hierarchical tree, company org chart, teams+flat-roles
 - [x] **AGENT-09**: Drag-drop reparenting across all 3 org modes with cycle detection
@@ -205,9 +205,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGENT-01 | Phase 4.01 + 4.02 | Complete |
 | AGENT-02 | Phase 4.02 | Pending |
 | AGENT-03 | Phase 4.01 | Pending |
-| AGENT-04 | Phase 4.01 | Pending |
-| AGENT-05 | Phase 4.01 | Pending |
-| AGENT-06 | Phase 4.01 | Pending |
+| AGENT-04 | Phase 4.01 | Complete |
+| AGENT-05 | Phase 4.01 | Complete |
+| AGENT-06 | Phase 4.01 | Complete |
 | AGENT-07 | Phase 4.02 | Complete |
 | AGENT-08 | Phase 4.02 | Pending |
 | AGENT-09 | Phase 4.02 | Complete |

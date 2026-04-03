@@ -11,10 +11,13 @@ import {
   Clock,
   Quote,
   Eye,
+  Pencil,
+  X,
+  Save,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AdaptiveTabBar } from './detail/AdaptiveTabBar'
-import type { AgentRecord } from '../../common/agent'
+import { AGENT_DOC_KEYS, type AgentRecord } from '../../common/agent'
 
 const AGENT_TABS = ['Profile', 'Files', 'History'] as const
 type AgentTab = (typeof AGENT_TABS)[number]
@@ -96,6 +99,29 @@ export function AgentDetailPanel({ agent, pinned, onTogglePinned }: AgentDetailP
 /* ---------- Profile tab ---------- */
 
 function ProfileTabContent({ agent }: { agent: AgentRecord }) {
+  const [editingDoc, setEditingDoc] = useState<string | null>(null)
+  const [docDraft, setDocDraft] = useState('')
+
+  const DOC_FILES = ['soul.md', 'heartbeat.md', 'tools.md', 'agents.md', 'interaction.md'] as const
+
+  const handleStartEdit = (docName: string) => {
+    // Read current content via the doc key
+    const key = docName.replace('.md', '') as keyof typeof agent.docs
+    setDocDraft(agent.docs[key] || '')
+    setEditingDoc(docName)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingDoc(null)
+    setDocDraft('')
+  }
+
+  const handleSaveEdit = () => {
+    // Save will be wired to IPC in future task when doc persistence is added
+    setEditingDoc(null)
+    setDocDraft('')
+  }
+
   return (
     <div className="space-y-3 text-sm">
       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -128,6 +154,60 @@ function ProfileTabContent({ agent }: { agent: AgentRecord }) {
           <span className="text-muted-foreground">Team: </span>{agent.team}
         </div>
       )}
+
+      {/* Agent Docs */}
+      <div className="pt-2 border-t">
+        <div className="text-xs font-medium text-muted-foreground mb-2">Agent Docs</div>
+        <div className="space-y-1.5">
+          {DOC_FILES.map((docName) => (
+            <div key={docName} className="group">
+              {editingDoc === docName ? (
+                <div className="rounded border p-2 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono">{docName}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleSaveEdit}
+                        className="p-1 rounded hover:bg-muted transition-colors"
+                        title="Save"
+                      >
+                        <Save className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="p-1 rounded hover:bg-muted transition-colors"
+                        title="Cancel"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    className="w-full min-h-[80px] p-2 text-xs font-mono border rounded bg-background resize-y"
+                    value={docDraft}
+                    onChange={(e) => setDocDraft(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded border p-2 text-xs">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1 font-mono">{docName}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(docName)}
+                    className="p-1 rounded hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                    title={`Edit ${docName}`}
+                  >
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

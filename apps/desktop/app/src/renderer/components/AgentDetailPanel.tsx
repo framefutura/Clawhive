@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AdaptiveTabBar } from './detail/AdaptiveTabBar'
+import { InteractionEditor } from './InteractionEditor'
 import { AGENT_DOC_KEYS, type AgentRecord } from '../../common/agent'
 
 const AGENT_TABS = ['Profile', 'Files', 'History'] as const
@@ -206,6 +207,19 @@ function ProfileTabContent({ agent }: { agent: AgentRecord }) {
               )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Interaction Editor (Paperclip-style, embedded) */}
+      <div className="pt-2 border-t">
+        <div className="text-xs font-medium text-muted-foreground mb-2">Interaction Editor</div>
+        <div className="rounded border overflow-hidden" style={{ height: 320 }}>
+          <InteractionEditor
+            docs={DOC_FILES.map((docName) => ({
+              name: docName,
+              content: agent.docs[docName.replace('.md', '') as keyof typeof agent.docs] || '',
+            }))}
+          />
         </div>
       </div>
     </div>

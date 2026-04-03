@@ -206,6 +206,21 @@ function initSchema(database: typeof db) {
     CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
     CREATE INDEX IF NOT EXISTS idx_team_members_agent ON team_members(agent_id);
 
+    -- Shared Memory System
+    CREATE TABLE IF NOT EXISTS shared_memories (
+      id TEXT PRIMARY KEY,
+      team_id TEXT REFERENCES teams(id) ON DELETE CASCADE,
+      agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+      type TEXT NOT NULL CHECK(type IN ('conversation', 'file', 'note', 'task_result')),
+      content TEXT NOT NULL,
+      tags TEXT NOT NULL DEFAULT '[]',
+      shared_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_shared_memories_team ON shared_memories(team_id);
+    CREATE INDEX IF NOT EXISTS idx_shared_memories_agent ON shared_memories(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_shared_memories_type ON shared_memories(type);
+
     -- Sensitive Data Authorization: Authorization requests
     CREATE TABLE IF NOT EXISTS sensitive_auth_requests (
       id TEXT PRIMARY KEY,
@@ -779,6 +794,97 @@ export function listAgentTeams(agentId: string): string[] {
   }
   stmt.free()
   return results
+}
+
+// Shared Memory operations
+export type SharedMemoryType = 'conversation' | 'file' | 'note' | 'task_result'
+
+export interface DbSharedMemory {
+  id: string
+  team_id: string | null
+  agent_id: string | null
+  type: SharedMemoryType
+  content: string
+  tags: string // JSON array string
+  shared_at: number
+}
+
+export function createSharedMemory(memory: Omit<DbSharedMemory, 'shared_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO shared_memories (id, team_id, agent_id, type, content, tags, shared_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [memory.id, memory.team_id ?? null, memory.agent_id ?? null, memory.type, memory.content, memory.tags, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function getSharedMemory(id: string): DbSharedMemory | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM shared_memories WHERE id = ?')
+  stmt.bind([id])
+  let result: DbSharedMemory | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbSharedMemory
+  }
+  stmt.free()
+  return result
+}
+
+export function listTeamMemories(teamId: string): DbSharedMemory[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM shared_memories WHERE team_id = ? ORDER BY shared_at DESC')
+  stmt.bind([teamId])
+  const results: DbSharedMemory[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbSharedMemory)
+  }
+  stmt.free()
+  return results
+}
+
+export function listAgentMemories(agentId: string): DbSharedMemory[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM shared_memories WHERE agent_id = ? ORDER BY shared_at DESC')
+  stmt.bind([agentId])
+  const results: DbSharedMemory[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbSharedMemory)
+  }
+  stmt.free()
+  return results
+}
+
+export function queryTeamMemories(teamId: string, query: string, tags?: string[]): DbSharedMemory[] {
+  if (!db) throw new Error('Database not initialized')
+
+  let sql = 'SELECT * FROM shared_memories WHERE team_id = ? AND content LIKE ?'
+  const params: (string | null)[] = [teamId, `%${query}%`]
+
+  if (tags && tags.length > 0) {
+    // Filter by tags -- each tag must appear in the JSON array
+    for (const tag of tags) {
+      sql += ' AND tags LIKE ?'
+      params.push(`%${JSON.stringify(tag).slice(1, -1)}%`)
+    }
+  }
+
+  sql += ' ORDER BY shared_at DESC'
+
+  const stmt = db.prepare(sql)
+  stmt.bind(params)
+  const results: DbSharedMemory[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbSharedMemory)
+  }
+  stmt.free()
+  return results
+}
+
+export function deleteSharedMemory(id: string): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run('DELETE FROM shared_memories WHERE id = ?', [id])
+  saveDatabase().catch(console.error)
 }
 
 // Gene operations (DeskClaw gene system)

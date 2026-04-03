@@ -156,6 +156,58 @@ function ProfileTabContent({ agent }: { agent: AgentRecord }) {
         </div>
       )}
 
+      {/* Secretary special surface */}
+      {agent.role === 'Secretary' && (
+        <div className="pt-2 border-t">
+          <div className="rounded border border-purple-500/30 bg-purple-500/5 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="h-2 w-2 rounded-full bg-purple-500" />
+              <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">Approval Bridge</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Secretary acts as a dual entity: full agent in the hierarchy and system-level approval interface.
+              Receives escalations from subordinates, formats for user review, and relays decisions back through the chain.
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded border p-2">
+                <div className="text-muted-foreground">Pending Escalations</div>
+                <div>0</div>
+              </div>
+              <div className="rounded border p-2">
+                <div className="text-muted-foreground">Decisions Relayed</div>
+                <div>0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CEO special surface */}
+      {agent.role === 'CEO' && (
+        <div className="pt-2 border-t">
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Organization Overview</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              CEO oversees the entire company structure with org-wide visibility. Synthesizes learning
+              from all subordinates and drives self-improvement across the organization.
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded border p-2">
+                <div className="text-muted-foreground">Direct Reports</div>
+                <div>0</div>
+              </div>
+              <div className="rounded border p-2">
+                <div className="text-muted-foreground">Company Brain</div>
+                <div className="text-muted-foreground text-[10px]">Active</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Agent Docs */}
       <div className="pt-2 border-t">
         <div className="text-xs font-medium text-muted-foreground mb-2">Agent Docs</div>

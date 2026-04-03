@@ -401,6 +401,56 @@ ipcMain.handle('storage:team:delete', (_, teamId: string) => {
   return deleteTeamStorageDir(teamId)
 })
 
+// IPC Handlers - Team Manager
+import { TeamManager } from './team-manager.js'
+import type { SharedMemory } from '../common/team.js'
+
+const teamManager = new TeamManager()
+
+ipcMain.handle('team:create', (_, name: string, leaderId: string, department?: string) => {
+  return teamManager.createTeam(name, leaderId, department)
+})
+
+ipcMain.handle('team:delete', (_, teamId: string) => {
+  return teamManager.deleteTeam(teamId)
+})
+
+ipcMain.handle('team:list', (_, agentId?: string) => {
+  return teamManager.listTeams(agentId)
+})
+
+ipcMain.handle('team:addMember', (_, teamId: string, agentId: string) => {
+  return teamManager.addMember(teamId, agentId)
+})
+
+ipcMain.handle('team:removeMember', (_, teamId: string, agentId: string) => {
+  return teamManager.removeMember(teamId, agentId)
+})
+
+ipcMain.handle('team:listMembers', (_, teamId: string) => {
+  return teamManager.listMembers(teamId)
+})
+
+ipcMain.handle('team:shareMemory', (_, teamId: string, agentId: string, memory: Omit<SharedMemory, 'id' | 'sharedAt' | 'teamId' | 'agentId'>) => {
+  return teamManager.shareMemory(teamId, agentId, memory)
+})
+
+ipcMain.handle('team:queryMemory', (_, teamId: string, query: string, tags?: string[]) => {
+  return teamManager.queryMemory(teamId, query, tags)
+})
+
+ipcMain.handle('team:getAgentMemory', (_, agentId: string) => {
+  return teamManager.getAgentMemory(agentId)
+})
+
+ipcMain.handle('team:getTeamMemories', (_, teamId: string) => {
+  return teamManager.getTeamMemories(teamId)
+})
+
+ipcMain.handle('team:deleteMemory', (_, memoryId: string) => {
+  return teamManager.deleteMemory(memoryId)
+})
+
 // IPC Handlers - Tool Registry
 ipcMain.handle('tools:list', () => {
   const registry = getToolRegistry()

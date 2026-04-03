@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { TabRecord, TabType } from './common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
+import type { SharedMemory } from './common/team.js'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
 const api = {
@@ -209,6 +210,30 @@ const api = {
     ipcRenderer.invoke('sandbox:status', sandboxId),
   getSandboxStats: () =>
     ipcRenderer.invoke('sandbox:stats'),
+
+  // Teams
+  createTeam: (name: string, leaderId: string, department?: string) =>
+    ipcRenderer.invoke('team:create', name, leaderId, department),
+  deleteTeam: (teamId: string) =>
+    ipcRenderer.invoke('team:delete', teamId),
+  listTeams: (agentId?: string) =>
+    ipcRenderer.invoke('team:list', agentId),
+  addTeamMember: (teamId: string, agentId: string) =>
+    ipcRenderer.invoke('team:addMember', teamId, agentId),
+  removeTeamMember: (teamId: string, agentId: string) =>
+    ipcRenderer.invoke('team:removeMember', teamId, agentId),
+  listTeamMembers: (teamId: string) =>
+    ipcRenderer.invoke('team:listMembers', teamId),
+  shareTeamMemory: (teamId: string, agentId: string, memory: Omit<SharedMemory, 'id' | 'sharedAt' | 'teamId' | 'agentId'>) =>
+    ipcRenderer.invoke('team:shareMemory', teamId, agentId, memory),
+  queryTeamMemory: (teamId: string, query: string, tags?: string[]) =>
+    ipcRenderer.invoke('team:queryMemory', teamId, query, tags),
+  getAgentMemory: (agentId: string) =>
+    ipcRenderer.invoke('team:getAgentMemory', agentId),
+  getTeamMemories: (teamId: string) =>
+    ipcRenderer.invoke('team:getTeamMemories', teamId),
+  deleteTeamMemory: (memoryId: string) =>
+    ipcRenderer.invoke('team:deleteMemory', memoryId),
 
   // Security Alerts
   onSecurityAlert: (callback: (alert: unknown) => void) => {

@@ -11,3 +11,11 @@ Resolved debug sessions. Used by `gsd-debugger` to surface known-pattern hypothe
 - **Fix:** (1) Changed .ts to .js on import. (2) Changed re-export to use alias. (3) Added agentName to CompactReport. (4) Used SensitiveDataClassifier.getTypeDescription() directly. (5) Removed duplicate export block.
 - **Files changed:** apps/desktop/app/src/main/execution-report.ts, apps/desktop/app/src/main/authorization-manager.ts
 ---
+
+## storage-then-sandbox-ts-buckets — TypeScript 'never' type errors in storage.ts and sandboxed-bridge.ts
+- **Date:** 2026-04-03
+- **Error patterns:** TS2339, Property does not exist on type never, NonNullable typeof resolves to never, spawn overload mismatch, db.run db.prepare db.exec db.export db.close on never, stdout stderr on kill killed on never
+- **Root cause:** (1) storage.ts: db variable typed via NonNullable<typeof SQL> which resolves to never at compile time since SQL is let-initialized as null. All db method calls then fail on type never. (2) sandboxed-bridge.ts: spawn() env object missing required ProcessEnv fields causes overload intersection collapse to never, making child process typed as never.
+- **Fix:** (1) Added SqlJsDatabase type alias derived from initSqlJs return type, replaced never-resolving db type. (2) Cast spawn env as NodeJS.ProcessEnv. (3) Added explicit column: unknown[] types to migration PRAGMA callbacks. (4) Added missing test type fields.
+- **Files changed:** apps/desktop/app/src/main/storage.ts, apps/desktop/app/src/main/sandboxed-bridge.ts, apps/desktop/app/src/main/storage.test.ts
+---

@@ -14,6 +14,7 @@ import { FileUpload, useClipboardPaste } from './components/FileUpload'
 import { SensitiveAuthDialog } from './components/SensitiveAuthDialog'
 import { RepairDialog } from './components/RepairDialog'
 import { AgentWizard } from './components/AgentWizard'
+import { AgentDetailPanel } from './components/AgentDetailPanel'
 import { OrgTree, type TreeNode } from './components/OrgTree'
 import { HierarchyViewSwitcher, type HierarchyViewMode } from './components/hierarchy/HierarchyViewSwitcher'
 import { useChatStore } from './stores/chatStore'
@@ -801,77 +802,20 @@ export default function App() {
             )}
           </div>
 
-          <aside className="w-80 shrink-0 border-l bg-card/30 p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold">Details</h2>
-                <p className="text-xs text-muted-foreground">
-                  Wave 1 detail seam for the selected subject.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  if (rightPanelPinned) {
-                    setRightPanelPinned(false)
-                    setRightPanelSubjectId(selectedSubjectId)
-                  } else {
-                    setRightPanelPinned(true)
-                    setRightPanelSubjectId(selectedSubjectId)
-                  }
-                }}
-                className="px-2 py-1 text-xs border rounded hover:bg-muted transition-colors"
-              >
-                {rightPanelPinned ? 'Unpin' : 'Pin'}
-              </button>
-            </div>
-
-            {rightPanelAgent ? (
-              <div className="space-y-3 text-sm">
-                <div>
-                  <div className="font-medium">{rightPanelAgent.name}</div>
-                  <div className="text-xs text-muted-foreground">{rightPanelAgent.role}</div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded border p-2">
-                    <div className="text-muted-foreground">Status</div>
-                    <div className="capitalize">{rightPanelAgent.status}</div>
-                  </div>
-                  <div className="rounded border p-2">
-                    <div className="text-muted-foreground">Lifecycle</div>
-                    <div className="capitalize">{rightPanelAgent.lifecycle}</div>
-                  </div>
-                </div>
-                {(rightPanelAgent.customizations.skills.length > 0 ||
-                  rightPanelAgent.customizations.knowledgeDocs.length > 0 ||
-                  rightPanelAgent.customizations.mcpServers.length > 0 ||
-                  rightPanelAgent.customizations.cliTools.length > 0) && (
-                  <div className="rounded border p-3 text-xs">
-                    <div className="text-muted-foreground mb-1.5 font-medium">Customizations</div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {rightPanelAgent.customizations.skills.length > 0 && (
-                        <div>{rightPanelAgent.customizations.skills.length} Skills</div>
-                      )}
-                      {rightPanelAgent.customizations.knowledgeDocs.length > 0 && (
-                        <div>{rightPanelAgent.customizations.knowledgeDocs.length} Knowledge Docs</div>
-                      )}
-                      {rightPanelAgent.customizations.mcpServers.length > 0 && (
-                        <div>{rightPanelAgent.customizations.mcpServers.length} MCP Servers</div>
-                      )}
-                      {rightPanelAgent.customizations.cliTools.length > 0 && (
-                        <div>{rightPanelAgent.customizations.cliTools.length} CLI Tools</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className="rounded border p-3 text-xs text-muted-foreground">
-                  Right-panel editing and special Secretary/CEO surfaces land in later waves.
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                Select an agent to inspect its registry details.
-              </div>
-            )}
+          <aside className="w-80 shrink-0 border-l bg-card/30">
+            <AgentDetailPanel
+              agent={rightPanelAgent}
+              pinned={rightPanelPinned}
+              onTogglePinned={() => {
+                if (rightPanelPinned) {
+                  setRightPanelPinned(false)
+                  setRightPanelSubjectId(selectedSubjectId)
+                } else {
+                  setRightPanelPinned(true)
+                  setRightPanelSubjectId(selectedSubjectId)
+                }
+              }}
+            />
           </aside>
         </div>
 

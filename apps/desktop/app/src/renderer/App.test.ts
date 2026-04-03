@@ -34,8 +34,20 @@ describe('App Wave 1 registry shell', () => {
     expect(loadAgentsDeclaration).toBeLessThan(firstLaunchHandler)
   })
 
-  it('renders the right pane from rightPanelSubjectId instead of selectedSubjectId', () => {
+  it('renders the right pane via AgentDetailPanel component', () => {
     expect(source).toContain('const rightPanelAgent = rightPanelSubjectId')
-    expect(source).toContain('{rightPanelAgent ? (')
+    expect(source).toContain('<AgentDetailPanel')
+    expect(source).toContain('agent={rightPanelAgent}')
+  })
+
+  it('tracks hierarchy view mode and renders the switcher component', () => {
+    expect(source).toContain("useState<'hierarchy' | 'org-chart' | 'teams'>('hierarchy')")
+    expect(source).toContain('<HierarchyViewSwitcher')
+    expect(source).toContain('onChange={setHierarchyViewMode}')
+  })
+
+  it('passes hierarchy view mode into OrgTree', () => {
+    expect(source).toContain('hierarchyViewMode')
+    expect(source).toContain('viewMode={hierarchyViewMode}')
   })
 })

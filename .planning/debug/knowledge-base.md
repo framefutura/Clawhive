@@ -19,3 +19,11 @@ Resolved debug sessions. Used by `gsd-debugger` to surface known-pattern hypothe
 - **Fix:** (1) Added SqlJsDatabase type alias derived from initSqlJs return type, replaced never-resolving db type. (2) Cast spawn env as NodeJS.ProcessEnv. (3) Added explicit column: unknown[] types to migration PRAGMA callbacks. (4) Added missing test type fields.
 - **Files changed:** apps/desktop/app/src/main/storage.ts, apps/desktop/app/src/main/sandboxed-bridge.ts, apps/desktop/app/src/main/storage.test.ts
 ---
+
+## renderer-security-filepreview-session-test-buckets — TypeScript errors in SecurityPanel, FilePreview, useSession test
+- **Date:** 2026-04-03
+- **Error patterns:** PermissionMatrix not exported, implicit any params, Uint8Array BlobPart mismatch, Session type mismatch, invalid GeneCategory values
+- **Root cause:** (1) SecurityPanel.tsx imports PermissionMatrix from wrong module (main/security-manager instead of common/security). (2) FilePreview.tsx Uint8Array/BlobPart type mismatch. (3) useSession.test.ts mock data uses fields not on Session type (name/createdAt/updatedAt instead of modelConfig/genes/messages) and invalid GeneCategory values (coding/analysis instead of dev/data).
+- **Fix:** Fixed import path for PermissionMatrix, added type annotations and Uint8Array cast, updated test mock data to match Session interface with valid GeneCategory values.
+- **Files changed:** apps/desktop/app/src/renderer/components/SecurityPanel.tsx, apps/desktop/app/src/renderer/components/FilePreview.tsx, apps/desktop/app/src/renderer/hooks/useSession.test.ts
+---

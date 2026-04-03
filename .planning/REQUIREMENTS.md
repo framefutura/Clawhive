@@ -56,10 +56,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AGENT-04**: Agent lifecycle: persistent, ephemeral, or user-chooses-per-agent
 - [ ] **AGENT-05**: Agent CRUD (create, read, update, delete, archive)
 - [ ] **AGENT-06**: Agent role permissions inherit/override Phase 3 Security Core roles (SEC-08)
-- [ ] **AGENT-07**: Interactive org tree displays hierarchy in left pane with live status overlay (busy/idle/error)
+- [x] **AGENT-07**: Interactive org tree displays hierarchy in left pane with live status overlay (busy/idle/error)
 - [ ] **AGENT-08**: Org tree supports all 3 view modes: hierarchical tree, company org chart, teams+flat-roles
-- [ ] **AGENT-09**: Drag-drop reparenting across all 3 org modes with cycle detection
-- [ ] **AGENT-10**: User can add/remove per-agent customizations: skills, knowledge docs, MCP servers, CLI tools, document references, tools
+- [x] **AGENT-09**: Drag-drop reparenting across all 3 org modes with cycle detection
+- [x] **AGENT-10**: User can add/remove per-agent customizations: skills, knowledge docs, MCP servers, CLI tools, document references, tools
 - [ ] **AGENT-11**: Secretary agent bridges top leader to user — acts as full agent in hierarchy AND system-level approval interface
 - [ ] **AGENT-12**: CEO agent defined as self-improving overseer of entire company and all sub-agents
 - [ ] **AGENT-13**: User can edit all 7 predefined role templates: modify soul.md, heartbeat.md, tools.md, agents.md, interaction.md
@@ -208,10 +208,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGENT-04 | Phase 4.01 | Pending |
 | AGENT-05 | Phase 4.01 | Pending |
 | AGENT-06 | Phase 4.01 | Pending |
-| AGENT-07 | Phase 4.02 | Pending |
+| AGENT-07 | Phase 4.02 | Complete |
 | AGENT-08 | Phase 4.02 | Pending |
-| AGENT-09 | Phase 4.02 | Pending |
-| AGENT-10 | Phase 4.02 | Pending |
+| AGENT-09 | Phase 4.02 | Complete |
+| AGENT-10 | Phase 4.02 | Complete |
 | AGENT-11 | Phase 4.02 | Pending |
 | AGENT-12 | Phase 4.02 | Pending |
 | AGENT-13 | Phase 4.02 | Pending |

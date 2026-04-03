@@ -8,6 +8,12 @@ export interface ChatMessage {
   attachments?: File[]
 }
 
+export interface ShareResult {
+  success: boolean
+  memoryId?: string
+  error?: string
+}
+
 export function useChatStore(sessionId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isWorking, setIsWorking] = useState(false)
@@ -78,5 +84,53 @@ export function useChatStore(sessionId?: string) {
     setMessages([])
   }, [])
 
-  return { messages, isWorking, sendMessage, clearMessages }
+  /**
+   * Share the current conversation (or a range of messages) with a team.
+   * Serializes messages to JSON and stores as a shared memory.
+   *
+   * @param teamId - Team to share with
+   * @param tags - Optional tags for filtering
+   * @param messageCount - Number of recent messages to share (default: all)
+   */
+  const shareConversation = useCallback(async (
+    teamId: string,
+    tags: string[] = [],
+    messageCount?: number
+  ): Promise<ShareResult> => {
+    if (messages.length === 0) {
+      return { success: false, error: 'No messages to share' }
+    }
+
+    const messagesToShare = messageCount
+      ? messages.slice(-messageCount)
+      : messages
+
+    const content = JSON.stringify(
+      messagesToShare.map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      })),
+      null,
+      2
+    )
+
+    try {
+      // Use a placeholder agentId derived from session context
+      const agentId = sessionId || 'unknown'
+
+      const result = await window.clawhive.shareTeamMemory(teamId, agentId, {
+        type: 'conversation',
+        content,
+        tags,
+      })
+
+      return { success: true, memoryId: (result as { id: string })?.id }
+    } catch (err) {
+      console.error('Failed to share conversation:', err)
+      return { success: false, error: String(err) }
+    }
+  }, [messages, sessionId])
+
+  return { messages, isWorking, sendMessage, clearMessages, shareConversation }
 }

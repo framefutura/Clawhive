@@ -841,6 +841,28 @@ export default function App() {
                     <div className="capitalize">{rightPanelAgent.lifecycle}</div>
                   </div>
                 </div>
+                {(rightPanelAgent.customizations.skills.length > 0 ||
+                  rightPanelAgent.customizations.knowledgeDocs.length > 0 ||
+                  rightPanelAgent.customizations.mcpServers.length > 0 ||
+                  rightPanelAgent.customizations.cliTools.length > 0) && (
+                  <div className="rounded border p-3 text-xs">
+                    <div className="text-muted-foreground mb-1.5 font-medium">Customizations</div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {rightPanelAgent.customizations.skills.length > 0 && (
+                        <div>{rightPanelAgent.customizations.skills.length} Skills</div>
+                      )}
+                      {rightPanelAgent.customizations.knowledgeDocs.length > 0 && (
+                        <div>{rightPanelAgent.customizations.knowledgeDocs.length} Knowledge Docs</div>
+                      )}
+                      {rightPanelAgent.customizations.mcpServers.length > 0 && (
+                        <div>{rightPanelAgent.customizations.mcpServers.length} MCP Servers</div>
+                      )}
+                      {rightPanelAgent.customizations.cliTools.length > 0 && (
+                        <div>{rightPanelAgent.customizations.cliTools.length} CLI Tools</div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="rounded border p-3 text-xs text-muted-foreground">
                   Right-panel editing and special Secretary/CEO surfaces land in later waves.
                 </div>

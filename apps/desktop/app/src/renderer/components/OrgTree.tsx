@@ -66,6 +66,32 @@ function roleMarker(role: AgentRole) {
   return null
 }
 
+function CustomizationSummary({ agent }: { agent: AgentRecord }) {
+  const c = agent.customizations
+  const counts = [
+    { label: 'Skills', value: c.skills.length },
+    { label: 'Knowledge', value: c.knowledgeDocs.length },
+    { label: 'MCP', value: c.mcpServers.length },
+    { label: 'CLI Tools', value: c.cliTools.length },
+  ]
+  const hasAny = counts.some(({ value }) => value > 0)
+
+  if (!hasAny) return null
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {counts.filter(({ value }) => value > 0).map(({ label, value }) => (
+        <span
+          key={label}
+          className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+        >
+          {value} {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function AgentTooltip({ agent }: { agent: AgentRecord }) {
   return (
     <div className="pointer-events-none absolute left-full top-1/2 z-30 ml-3 hidden min-w-56 -translate-y-1/2 rounded-md border bg-popover p-3 text-xs shadow-lg group-hover:block">
@@ -75,6 +101,7 @@ function AgentTooltip({ agent }: { agent: AgentRecord }) {
       <div className="capitalize text-foreground">{agent.status}</div>
       <div className="mt-2 text-muted-foreground">summary</div>
       <div className="text-foreground">{agent.summary ?? ''}</div>
+      <CustomizationSummary agent={agent} />
     </div>
   )
 }

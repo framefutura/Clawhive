@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { TabRecord, TabType } from '../common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from '../common/workspace.js'
-import type { AgentRecord } from '../common/agent.js'
+import type { AgentRecord, AgentRole } from '../common/agent.js'
 import type { UnknownRoleBehavior } from '../main/agent-mapper.js'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
@@ -254,7 +254,7 @@ const api = {
   // Role Templates
   listRoleTemplates: () =>
     ipcRenderer.invoke('roleTemplates:list') as Promise<
-      { role: string; docs: Record<string, string> }[]
+      { role: AgentRole; docs: Record<string, string> }[]
     >,
   updateRoleTemplate: (role: string, docName: string, content: string) =>
     ipcRenderer.invoke('roleTemplates:update', role, docName, content) as Promise<boolean>,

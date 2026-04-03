@@ -931,6 +931,102 @@ ipcMain.handle('roleTemplates:update', async (_, role: string, docName: string, 
   return true
 })
 
+// IPC Handlers - A2A Messaging
+import { getA2AMessaging } from './a2a-messaging.js'
+import { getMessageBus } from './message-bus.js'
+
+// Track current active agent for IPC context
+let currentActiveAgentId: string | null = null
+
+ipcMain.handle('a2a:sendPrompt', async (_, toAgentId: string, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  // Auto-read context before sending (convenience wrapper for IPC)
+  messaging.readContext(fromAgentId, toAgentId)
+  return messaging.sendPrompt(fromAgentId, toAgentId, content)
+})
+
+ipcMain.handle('a2a:reply', async (_, messageId: string, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  await messaging.replyTo(fromAgentId, messageId, content)
+})
+
+ipcMain.handle('a2a:inbox', () => {
+  const messaging = getA2AMessaging()
+  const agentId = currentActiveAgentId
+  if (!agentId) return []
+  return messaging.getInbox(agentId)
+})
+
+ipcMain.handle('a2a:markRead', (_, messageId: string) => {
+  const messaging = getA2AMessaging()
+  const agentId = currentActiveAgentId
+  if (!agentId) return
+  messaging.markRead(agentId, messageId)
+})
+
+ipcMain.handle('a2a:readContext', (_, targetAgentId: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) return null
+  return messaging.readContext(fromAgentId, targetAgentId)
+})
+
+// Subscribe to A2A messages for real-time forwarding to renderer
+function setupA2ASubscription(agentId: string) {
+  const bus = getMessageBus()
+  return bus.subscribe(agentId, (msg) => {
+    mainWindow?.webContents.send('a2a:message', msg)
+  })
+}
+
+// Track active agent and manage A2A subscriptions
+let currentA2AUnsubscribe: (() => void) | null = null
+
+function setCurrentActiveAgent(agentId: string | null) {
+  // Clean up previous subscription
+  if (currentA2AUnsubscribe) {
+    currentA2AUnsubscribe()
+    currentA2AUnsubscribe = null
+  }
+
+  currentActiveAgentId = agentId
+
+  // Set up new subscription
+  if (agentId) {
+    currentA2AUnsubscribe = setupA2ASubscription(agentId)
+  }
+}
+
+// Hook into session creation to track active agent
+const originalSessionCreate = ipcMain.listeners('session:create')
+// Override session creation to also track active agent for A2A
+ipcMain.removeHandler('session:create')
+ipcMain.handle('session:create', (event, agentId: string, modelConfig: import('./session.js').ModelConfig, genes?: string[]) => {
+  const session = sessionStore.create(agentId, modelConfig, genes)
+
+  createSession({
+    id: session.id,
+    agent_id: agentId,
+    provider: modelConfig.provider,
+    model: modelConfig.model,
+    security_level: 'medium',
+    role_name: null,
+  })
+
+  // Track active agent for A2A messaging
+  setCurrentActiveAgent(agentId)
+
+  return session
+})
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { TabRecord, TabType } from '../common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from '../common/workspace.js'
 import type { AgentRecord, AgentRole } from '../common/agent.js'
+import type { A2AMessage } from '../common/a2a.js'
 import type { UnknownRoleBehavior } from '../main/agent-mapper.js'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
@@ -258,6 +259,25 @@ const api = {
     >,
   updateRoleTemplate: (role: string, docName: string, content: string) =>
     ipcRenderer.invoke('roleTemplates:update', role, docName, content) as Promise<boolean>,
+
+  // A2A Messaging
+  a2aSendPrompt: (toAgentId: string, content: string) =>
+    ipcRenderer.invoke('a2a:sendPrompt', toAgentId, content) as Promise<string>,
+  a2aReplyToMessage: (messageId: string, content: string) =>
+    ipcRenderer.invoke('a2a:reply', messageId, content) as Promise<void>,
+  a2aGetInbox: () =>
+    ipcRenderer.invoke('a2a:inbox') as Promise<A2AMessage[]>,
+  a2aMarkRead: (messageId: string) =>
+    ipcRenderer.invoke('a2a:markRead', messageId) as Promise<void>,
+  a2aReadAgentContext: (agentId: string) =>
+    ipcRenderer.invoke('a2a:readContext', agentId) as Promise<unknown>,
+  onA2AMessage: (callback: (msg: A2AMessage) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, data: A2AMessage) => callback(data)
+    ipcRenderer.on('a2a:message', listener)
+    return () => {
+      ipcRenderer.removeListener('a2a:message', listener)
+    }
+  },
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

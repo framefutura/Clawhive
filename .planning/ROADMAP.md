@@ -143,7 +143,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 7. CEO agent appears in org tree with self-improving overseer docs that reference all sub-agents and company structure
 
 **Plans:** 1 plan
-- [ ] 04-05-PLAN.md — Interaction editor, agent docs, Secretary/CEO agents, role template editing (AGENT-11, AGENT-13, AGENT-14, AGENT-15)
+- [ ] 04-02-PLAN.md — Wrapper plan for the full Agent Registry UI execution chain (`04-02-00` → `04-02-04`)
 
 ---
 

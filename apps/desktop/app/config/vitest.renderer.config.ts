@@ -1,11 +1,13 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
 
+const rootDir = resolve(__dirname, '..')
+
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/renderer/**/*.test.ts', 'src/renderer/**/*.test.tsx', 'src/common/**/*.test.ts'],
+    include: [resolve(rootDir, 'src/renderer/**/*.test.ts'), resolve(rootDir, 'src/renderer/**/*.test.tsx'), resolve(rootDir, 'src/common/**/*.test.ts')],
     testTimeout: 10000,
     coverage: {
       provider: 'v8',
@@ -14,7 +16,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': resolve(rootDir, 'src'),
     },
   },
 })

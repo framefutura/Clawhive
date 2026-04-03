@@ -135,6 +135,27 @@ ui/src/ui/views/__screenshots__
 ui/.vitest-attachments
 docs/superpowers
 
+# Planning, research, design docs (not for DMG app)
+.planning/
+.superpowers/
+workspace/
+Clawhive/
+docs/superpowers/
+docs/.generated/
+docs/assets/sponsors/
+*.summary.md
+*.research.md
+*.verification.md
+*.validation.md
+*.context.md
+*SUMMARY.md
+*RESEARCH.md
+*VERIFICATION.md
+*VALIDATION.md
+*CONTEXT.md
+*-PLAN.md
+*_PLAN.md
+
 # Deprecated changelog fragment workflow
 changelog/fragments/
 .serena/

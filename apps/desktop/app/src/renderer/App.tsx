@@ -14,6 +14,8 @@ import { FileUpload, useClipboardPaste } from './components/FileUpload'
 import { SensitiveAuthDialog } from './components/SensitiveAuthDialog'
 import { RepairDialog } from './components/RepairDialog'
 import { AgentWizard } from './components/AgentWizard'
+import { OrgTree, type TreeNode } from './components/OrgTree'
+import { HierarchyViewSwitcher, type HierarchyViewMode } from './components/hierarchy/HierarchyViewSwitcher'
 import { useChatStore } from './stores/chatStore'
 import { useTabStore } from './stores/tabStore'
 import { useWorkspaceStore } from './stores/workspaceStore'
@@ -85,6 +87,7 @@ export default function App() {
   const [agents, setAgents] = useState<AgentRecord[]>([])
   const [roles, setRoles] = useState<{ id: string; name: string; default_level: 'high' | 'medium' | 'low'; permissions: string }[]>([])
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
+  const [hierarchyViewMode, setHierarchyViewMode] = useState<'hierarchy' | 'org-chart' | 'teams'>('hierarchy')
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
   const [rightPanelPinned, setRightPanelPinned] = useState(false)
   const [rightPanelSubjectId, setRightPanelSubjectId] = useState<string | null>(null)
@@ -144,7 +147,10 @@ export default function App() {
 
   const loadAgents = useCallback(async () => {
     try {
-      const loadedAgents = await window.clawhive.getAgents()
+      const [loadedAgents, hierarchy] = await Promise.all([
+        window.clawhive.getAgents(),
+        window.clawhive.getHierarchy(),
+      ])
       setAgents(loadedAgents)
       return loadedAgents
     } catch (err) {
@@ -477,9 +483,29 @@ export default function App() {
     id: agent.id,
     name: agent.name,
     role: agent.role,
-    status: agent.status === 'blocked' || agent.status === 'error' ? 'offline' as const : agent.status === 'working' ? 'working' as const : 'idle' as const,
+    status: agent.status,
     geneCount: agent.genes.length,
   }))
+
+  const buildHierarchy = useCallback((records: AgentRecord[]): TreeNode<AgentRecord>[] => {
+    const nodeMap = new Map(records.map((agent) => [agent.id, { data: agent, children: [] as TreeNode<AgentRecord>[] }]))
+    const roots: TreeNode<AgentRecord>[] = []
+
+    for (const agent of records) {
+      const node = nodeMap.get(agent.id)
+      if (!node) continue
+
+      if (agent.parentId && nodeMap.has(agent.parentId)) {
+        nodeMap.get(agent.parentId)?.children.push(node)
+      } else {
+        roots.push(node)
+      }
+    }
+
+    return roots
+  }, [])
+
+  const hierarchyNodes = buildHierarchy(agents)
 
   const selectedAgent = selectedSubjectId
     ? agents.find(agent => agent.id === selectedSubjectId) ?? null
@@ -519,6 +545,27 @@ export default function App() {
     setAgentWizardOpen(false)
   }
 
+  const handleReparentAgent = useCallback(async (
+    agentId: string,
+    newParentId: string | undefined,
+    _comment: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await window.clawhive.updateAgent(agentId, { parentId: newParentId })
+      await loadAgents()
+      // Keep the moved agent selected
+      setActiveAgentId(agentId)
+      setSelectedSubjectId(agentId)
+      if (!rightPanelPinned) {
+        setRightPanelSubjectId(agentId)
+      }
+      return { success: true }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { success: false, error: message }
+    }
+  }, [loadAgents, rightPanelPinned])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
@@ -556,7 +603,7 @@ export default function App() {
         />
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="shrink-0 border-r bg-card/40">
+          <div className="shrink-0 border-r bg-card/40 flex flex-col">
             <Sidebar
               agents={sidebarAgents}
               activeAgentId={activeAgentId}
@@ -564,6 +611,32 @@ export default function App() {
               onCreateAgent={() => setAgentWizardOpen(true)}
               geneCategories={SAMPLE_GENE_CATEGORIES}
             />
+
+            <div className="border-t p-3">
+              <HierarchyViewSwitcher
+                viewMode={hierarchyViewMode as HierarchyViewMode}
+                onChange={setHierarchyViewMode}
+              />
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto p-3 pt-0">
+              <OrgTree
+                nodes={hierarchyNodes}
+                allAgents={agents}
+                activeAgentId={activeAgentId ?? undefined}
+                viewMode={hierarchyViewMode}
+                onSelectAgent={handleSelectAgent}
+                onCreateAgent={(parentId) => {
+                  setSelectedSubjectId(parentId ?? null)
+                  setAgentWizardOpen(true)
+                }}
+                onEditAgent={handleSelectAgent}
+                onDeleteAgent={(id) => {
+                  console.warn('Delete agent not implemented yet', id)
+                }}
+                onReparentAgent={handleReparentAgent}
+              />
+            </div>
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col">

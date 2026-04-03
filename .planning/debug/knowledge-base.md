@@ -27,3 +27,11 @@ Resolved debug sessions. Used by `gsd-debugger` to surface known-pattern hypothe
 - **Fix:** Fixed import path for PermissionMatrix, added type annotations and Uint8Array cast, updated test mock data to match Session interface with valid GeneCategory values.
 - **Files changed:** apps/desktop/app/src/renderer/components/SecurityPanel.tsx, apps/desktop/app/src/renderer/components/FilePreview.tsx, apps/desktop/app/src/renderer/hooks/useSession.test.ts
 ---
+
+## ts-bucket-tool-registry-threat-role-template-editor — TS errors in tool-registry, threat-analyzer, RoleTemplateEditor preload types
+- **Date:** 2026-04-03
+- **Error patterns:** duplicate export conflict ToolDefinition AgentToolPermission, medium high low critical not assignable to ThreatLevel, role string not assignable to AgentRole, union drift, re-export, preload bridge type mismatch
+- **Root cause:** (1) tool-registry.ts had redundant `export type { ToolDefinition, AgentToolPermission }` re-export when interfaces were already exported inline. (2) threat-analyzer.ts used severity union ('low'|'medium'|'high'|'critical') in analyzeToolChain where ThreatLevel ('safe'|'caution'|'dangerous'|'critical') was expected, without a mapping function. (3) preload/index.ts typed listRoleTemplates return as `{ role: string }` while RoleTemplateEditor.tsx expected `{ role: AgentRole }`.
+- **Fix:** (1) Removed redundant export type line from tool-registry.ts. (2) Added severityToThreatLevel() mapping method in ThreatAnalyzer. (3) Imported AgentRole in preload/index.ts and changed listRoleTemplates return type to use AgentRole.
+- **Files changed:** apps/desktop/app/src/main/tool-registry.ts, apps/desktop/app/src/main/threat-analyzer.ts, apps/desktop/app/src/preload/index.ts
+---

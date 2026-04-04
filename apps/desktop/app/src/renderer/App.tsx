@@ -15,6 +15,7 @@ import { SensitiveAuthDialog } from './components/SensitiveAuthDialog'
 import { RepairDialog } from './components/RepairDialog'
 import { AgentWizard } from './components/AgentWizard'
 import { AgentDetailPanel } from './components/AgentDetailPanel'
+import { TaskRouterPanel } from './components/TaskRouterPanel'
 import { OrgTree, type TreeNode } from './components/OrgTree'
 import { HierarchyViewSwitcher, type HierarchyViewMode } from './components/hierarchy/HierarchyViewSwitcher'
 import { useChatStore } from './stores/chatStore'
@@ -104,6 +105,7 @@ export default function App() {
   const [repairDialogOpen, setRepairDialogOpen] = useState(false)
   const [securityPanelOpen, setSecurityPanelOpen] = useState(false)
   const [agentWizardOpen, setAgentWizardOpen] = useState(false)
+  const [taskRouterOpen, setTaskRouterOpen] = useState(false)
   const [securityLevel, setSecurityLevel] = useState<SecurityLevel>('medium')
   const [parsedPermissions, setParsedPermissions] = useState<PermissionMatrix>({
     tools: {}, files: { read: [], write: [], deny: [] }, network: { allowHosts: [], denyHosts: [] }, execution: { shell: 'prompt', code: 'prompt' }
@@ -926,6 +928,13 @@ export default function App() {
             name: agent.name,
             role: agent.role,
           }))}
+        />
+
+        <TaskRouterPanel
+          agents={agents.map(a => ({ id: a.id, name: a.name }))}
+          activeAgentId={activeAgentId ?? undefined}
+          visible={taskRouterOpen}
+          onClose={() => setTaskRouterOpen(false)}
         />
 
         <Settings

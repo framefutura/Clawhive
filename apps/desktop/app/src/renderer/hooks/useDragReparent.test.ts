@@ -70,8 +70,8 @@ describe('createDragState', () => {
     expect(state.canDrop).toBe(true)
     state.setHoverParent('c')
     expect(state.hoverParentId).toBe('c')
-    // b -> c would be valid (c is not ancestor of b)
-    expect(state.canDrop).toBe(true)
+    // b -> c is a cycle (c is a descendant of b)
+    expect(state.canDrop).toBe(false)
   })
 
   it('completeDrop without startDrag returns blocked', () => {

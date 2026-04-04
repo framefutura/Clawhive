@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { ChevronDown, ChevronRight, Plus, MoreVertical, ArrowRightLeft, AlertCircle, CheckCircle2, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AgentRecord, AgentStatus, AgentRole } from '../../common/agent'
-import { HierarchyViewSwitcher, type HierarchyViewMode } from './hierarchy/HierarchyViewSwitcher'
+import { wouldCreateCycle } from '../hooks/useDragReparent'
 
 export interface TreeNode<T> {
   data: T
@@ -237,11 +237,13 @@ function ReparentResult({
 function AgentRow({
   agent,
   activeAgentId,
+  allAgents,
   onSelectAgent,
   onCreateAgent,
   onEditAgent,
   onDeleteAgent,
   onMoveAgent,
+  onDropAgent,
   depth = 0,
   hasChildren = false,
   expanded = true,
@@ -249,27 +251,65 @@ function AgentRow({
 }: {
   agent: AgentRecord
   activeAgentId?: string
+  allAgents: AgentRecord[]
   onSelectAgent: (id: string) => void
   onCreateAgent: (parentId?: string) => void
   onEditAgent: (id: string) => void
   onDeleteAgent: (id: string) => void
   onMoveAgent: (agent: AgentRecord) => void
+  onDropAgent: (draggedId: string, targetId: string) => void
   depth?: number
   hasChildren?: boolean
   expanded?: boolean
   onToggle?: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const marker = roleMarker(agent.role)
 
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    e.dataTransfer.setData('text/plain', agent.id)
+    e.dataTransfer.effectAllowed = 'move'
+  }, [agent.id])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const draggedId = e.dataTransfer.types.includes('text/plain') ? 'pending' : ''
+    if (draggedId) {
+      setDragOver(true)
+      e.dataTransfer.dropEffect = 'move'
+    }
+  }, [])
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const draggedId = e.dataTransfer.getData('text/plain')
+    if (draggedId && draggedId !== agent.id) {
+      onDropAgent(draggedId, agent.id)
+    }
+  }, [agent.id, onDropAgent])
+
   return (
-    <div className="group relative select-none">
+    <div
+      className="group relative select-none"
+      draggable
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div
         className={cn(
           'flex items-center gap-2 py-1.5 pr-2 cursor-pointer border-l-2 border-transparent transition-colors rounded-r-md',
           activeAgentId === agent.id ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-muted',
           agent.role === 'Secretary' && 'ring-1 ring-purple-200 dark:ring-purple-900/50',
-          agent.role === 'CEO' && 'ring-1 ring-amber-200 dark:ring-amber-900/50'
+          agent.role === 'CEO' && 'ring-1 ring-amber-200 dark:ring-amber-900/50',
+          dragOver && 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-950/30'
         )}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => onSelectAgent(agent.id)}
@@ -377,20 +417,24 @@ function AgentRow({
 function HierarchyNode({
   node,
   activeAgentId,
+  allAgents,
   onSelectAgent,
   onCreateAgent,
   onEditAgent,
   onDeleteAgent,
   onMoveAgent,
+  onDropAgent,
   depth = 0,
 }: {
   node: TreeNode<AgentRecord>
   activeAgentId?: string
+  allAgents: AgentRecord[]
   onSelectAgent: (id: string) => void
   onCreateAgent: (parentId?: string) => void
   onEditAgent: (id: string) => void
   onDeleteAgent: (id: string) => void
   onMoveAgent: (agent: AgentRecord) => void
+  onDropAgent: (draggedId: string, targetId: string) => void
   depth?: number
 }) {
   const [expanded, setExpanded] = useState(true)
@@ -401,11 +445,13 @@ function HierarchyNode({
       <AgentRow
         agent={node.data}
         activeAgentId={activeAgentId}
+        allAgents={allAgents}
         onSelectAgent={onSelectAgent}
         onCreateAgent={onCreateAgent}
         onEditAgent={onEditAgent}
         onDeleteAgent={onDeleteAgent}
         onMoveAgent={onMoveAgent}
+        onDropAgent={onDropAgent}
         depth={depth}
         hasChildren={hasChildren}
         expanded={expanded}
@@ -420,11 +466,13 @@ function HierarchyNode({
               key={child.data.id}
               node={child}
               activeAgentId={activeAgentId}
+              allAgents={allAgents}
               onSelectAgent={onSelectAgent}
               onCreateAgent={onCreateAgent}
               onEditAgent={onEditAgent}
               onDeleteAgent={onDeleteAgent}
               onMoveAgent={onMoveAgent}
+              onDropAgent={onDropAgent}
               depth={depth + 1}
             />
           ))}
@@ -440,12 +488,14 @@ function flattenNodes(nodes: TreeNode<AgentRecord>[]): AgentRecord[] {
 
 function renderOrgChart(
   nodes: TreeNode<AgentRecord>[],
+  allAgents: AgentRecord[],
   activeAgentId: string | undefined,
   onSelectAgent: (id: string) => void,
   onCreateAgent: (parentId?: string) => void,
   onEditAgent: (id: string) => void,
   onDeleteAgent: (id: string) => void,
-  onMoveAgent: (agent: AgentRecord) => void
+  onMoveAgent: (agent: AgentRecord) => void,
+  onDropAgent: (draggedId: string, targetId: string) => void
 ) {
   const rows: AgentRecord[][] = []
   let level = nodes
@@ -464,11 +514,13 @@ function renderOrgChart(
               key={agent.id}
               agent={agent}
               activeAgentId={activeAgentId}
+              allAgents={allAgents}
               onSelectAgent={onSelectAgent}
               onCreateAgent={onCreateAgent}
               onEditAgent={onEditAgent}
               onDeleteAgent={onDeleteAgent}
               onMoveAgent={onMoveAgent}
+              onDropAgent={onDropAgent}
             />
           ))}
         </div>
@@ -479,12 +531,14 @@ function renderOrgChart(
 
 function renderTeams(
   nodes: TreeNode<AgentRecord>[],
+  allAgents: AgentRecord[],
   activeAgentId: string | undefined,
   onSelectAgent: (id: string) => void,
   onCreateAgent: (parentId?: string) => void,
   onEditAgent: (id: string) => void,
   onDeleteAgent: (id: string) => void,
-  onMoveAgent: (agent: AgentRecord) => void
+  onMoveAgent: (agent: AgentRecord) => void,
+  onDropAgent: (draggedId: string, targetId: string) => void
 ) {
   const grouped = flattenNodes(nodes).reduce<Record<string, AgentRecord[]>>((acc, agent) => {
     const key = `${agent.department ?? 'Unassigned'} / ${agent.team ?? 'General'}`
@@ -504,11 +558,13 @@ function renderTeams(
                 key={agent.id}
                 agent={agent}
                 activeAgentId={activeAgentId}
+                allAgents={allAgents}
                 onSelectAgent={onSelectAgent}
                 onCreateAgent={onCreateAgent}
                 onEditAgent={onEditAgent}
                 onDeleteAgent={onDeleteAgent}
                 onMoveAgent={onMoveAgent}
+                onDropAgent={onDropAgent}
               />
             ))}
           </div>
@@ -548,6 +604,16 @@ export function OrgTree({
     setReparentResult(result)
   }
 
+  // Drag-drop handler: validate cycle then call reparent
+  const handleDropAgent = useCallback(async (draggedId: string, targetId: string) => {
+    if (wouldCreateCycle(allAgents, draggedId, targetId)) {
+      setReparentResult({ success: false, error: 'Circular reference detected' })
+      return
+    }
+    const result = await onReparentAgent(draggedId, targetId, '')
+    setReparentResult(result)
+  }, [allAgents, onReparentAgent])
+
   if (nodes.length === 0) {
     return (
       <div className="p-4 text-center">
@@ -565,7 +631,6 @@ export function OrgTree({
 
   return (
     <div className="space-y-3 py-2">
-      <HierarchyViewSwitcher viewMode={viewMode as HierarchyViewMode} onChange={() => {}} />
       {viewMode === 'hierarchy' ? (
         <div>
           {nodes.map((node) => (
@@ -573,17 +638,19 @@ export function OrgTree({
               key={node.data.id}
               node={node}
               activeAgentId={activeAgentId}
+              allAgents={allAgents}
               onSelectAgent={onSelectAgent}
               onCreateAgent={onCreateAgent}
               onEditAgent={onEditAgent}
               onDeleteAgent={onDeleteAgent}
               onMoveAgent={handleMoveAgent}
+              onDropAgent={handleDropAgent}
             />
           ))}
         </div>
       ) : null}
-      {viewMode === 'org-chart' ? renderOrgChart(nodes, activeAgentId, onSelectAgent, onCreateAgent, onEditAgent, onDeleteAgent, handleMoveAgent) : null}
-      {viewMode === 'teams' ? renderTeams(nodes, activeAgentId, onSelectAgent, onCreateAgent, onEditAgent, onDeleteAgent, handleMoveAgent) : null}
+      {viewMode === 'org-chart' ? renderOrgChart(nodes, allAgents, activeAgentId, onSelectAgent, onCreateAgent, onEditAgent, onDeleteAgent, handleMoveAgent, handleDropAgent) : null}
+      {viewMode === 'teams' ? renderTeams(nodes, allAgents, activeAgentId, onSelectAgent, onCreateAgent, onEditAgent, onDeleteAgent, handleMoveAgent, handleDropAgent) : null}
 
       {reparentState && (
         <ReparentDialog

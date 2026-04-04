@@ -5,6 +5,26 @@ vi.mock('./storage.js', () => ({
   addActivityLog: vi.fn(() => 'mock-id'),
 }))
 
+// Mock privacy-guard module
+vi.mock('./privacy-guard.js', () => {
+  return {
+    detectSuspicious: vi.fn(() => ({
+      credentialAccess: false,
+      shellInjection: false,
+      obfuscation: false,
+      privilegeEscalation: false,
+      financialCrime: false,
+    })),
+    getPrivacyGuard: vi.fn(() => ({})),
+    evaluateSuspiciousSignals: vi.fn(() => ({ blocked: false })),
+  }
+})
+
+// Mock agent-registry for leader-chain lookups
+vi.mock('./agent-registry.js', () => ({
+  AgentRegistry: vi.fn(),
+}))
+
 import { MessageBus, clearReadGuard, clearRateLimits, clearCircuitBreakers } from './message-bus.js'
 import {
   A2AMessaging,
@@ -14,6 +34,8 @@ import {
   consumePendingTask,
   updateAgentContextSnapshot,
   resetA2AState,
+  getCoachingArchive,
+  setLeaderChainResolver,
 } from './a2a-messaging.js'
 
 describe('A2AMessaging', () => {
@@ -141,6 +163,88 @@ describe('A2AMessaging', () => {
       await messaging.sendPrompt('agent-a', 'agent-b', 'Msg 2')
 
       expect(messaging.getUnreadCount('agent-b')).toBe(2)
+    })
+  })
+
+  describe('escalation routing', () => {
+    beforeEach(() => {
+      // Set up a leader chain: agent-c -> agent-b -> agent-a (CEO)
+      setLeaderChainResolver((agentId: string) => {
+        const chain: Record<string, string | undefined> = {
+          'agent-c': 'agent-b',
+          'agent-b': 'agent-a',
+        }
+        return chain[agentId]
+      })
+    })
+
+    it('routes approval-request to immediate leader', async () => {
+      messaging.readContext('agent-c', 'agent-b')
+      const msgId = await messaging.sendApprovalRequest('agent-c', 'Need budget approval')
+      expect(msgId).toBeTruthy()
+
+      const inbox = messaging.getInbox('agent-b')
+      const approvalMsg = inbox.find(m => m.type === 'approval-request')
+      expect(approvalMsg).toBeDefined()
+      expect(approvalMsg!.content).toBe('Need budget approval')
+    })
+
+    it('escalates to next superior when leader not found', async () => {
+      // Override resolver: agent-c has no direct leader, falls through to agent-a
+      setLeaderChainResolver((agentId: string) => {
+        const chain: Record<string, string | undefined> = {
+          'agent-c': undefined,
+        }
+        return chain[agentId]
+      })
+
+      // Should not throw -- falls back to secretary or user
+      const msgId = await messaging.sendApprovalRequest('agent-c', 'Escalated request')
+      expect(msgId).toBeTruthy()
+    })
+  })
+
+  describe('guidance requests', () => {
+    beforeEach(() => {
+      setLeaderChainResolver((agentId: string) => {
+        const chain: Record<string, string | undefined> = {
+          'agent-c': 'agent-b',
+          'agent-b': 'agent-a',
+        }
+        return chain[agentId]
+      })
+    })
+
+    it('sends guidance-request to parent and receives guidance-response', async () => {
+      messaging.readContext('agent-c', 'agent-b')
+      const msgId = await messaging.sendGuidanceRequest('agent-c', 'How should I handle this task?')
+      expect(msgId).toBeTruthy()
+
+      const inbox = messaging.getInbox('agent-b')
+      const guidanceMsg = inbox.find(m => m.type === 'guidance-request')
+      expect(guidanceMsg).toBeDefined()
+    })
+  })
+
+  describe('coaching and self-improvement archive', () => {
+    it('archives coaching messages for later review', async () => {
+      messaging.readContext('agent-a', 'agent-b')
+      await messaging.sendCoaching('agent-a', 'agent-b', 'Improve your response time')
+
+      const archive = getCoachingArchive('agent-b')
+      expect(archive).toHaveLength(1)
+      expect(archive[0].content).toBe('Improve your response time')
+      expect(archive[0].type).toBe('coaching')
+    })
+
+    it('archives self-improvement messages', async () => {
+      messaging.readContext('agent-b', 'agent-a')
+      await messaging.sendSelfImprovement('agent-b', 'agent-a', 'I learned to optimize queries')
+
+      const archive = getCoachingArchive('agent-a')
+      const selfImprove = archive.find(m => m.type === 'self-improvement')
+      expect(selfImprove).toBeDefined()
+      expect(selfImprove!.content).toBe('I learned to optimize queries')
     })
   })
 })

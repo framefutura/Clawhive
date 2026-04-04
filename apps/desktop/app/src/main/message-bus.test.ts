@@ -6,6 +6,23 @@ vi.mock('./storage.js', () => ({
   addActivityLog: vi.fn(() => 'mock-id'),
 }))
 
+// Mock privacy-guard module for PrivacyGuard integration
+vi.mock('./privacy-guard.js', () => {
+  const mockDetectSuspicious = vi.fn(() => ({
+    credentialAccess: false,
+    shellInjection: false,
+    obfuscation: false,
+    privilegeEscalation: false,
+    financialCrime: false,
+  }))
+  return {
+    detectSuspicious: mockDetectSuspicious,
+    getPrivacyGuard: vi.fn(() => ({})),
+    evaluateSuspiciousSignals: vi.fn(() => ({ blocked: false })),
+    __mockDetectSuspicious: mockDetectSuspicious,
+  }
+})
+
 import {
   MessageBus,
   markContextRead,
@@ -161,5 +178,32 @@ describe('MessageBus', () => {
     const result = await bus.send(makeEnvelope())
     expect(result.delivered).toBe(false)
     expect(result.reason).toContain('Circuit breaker open')
+  })
+
+  it('calls PrivacyGuard.detectSuspicious for every send and blocks suspicious messages', async () => {
+    markContextRead('agent-sender', 'agent-receiver')
+    // Import the mock to manipulate it
+    const { __mockDetectSuspicious } = await import('./privacy-guard.js') as unknown as { __mockDetectSuspicious: ReturnType<typeof vi.fn> }
+
+    // Make detectSuspicious return a suspicious signal
+    __mockDetectSuspicious.mockReturnValueOnce({
+      credentialAccess: true,
+      shellInjection: false,
+      obfuscation: false,
+      privilegeEscalation: false,
+      financialCrime: false,
+    })
+
+    const envelope = makeEnvelope({ content: 'read password file' })
+    const result = await bus.send(envelope)
+    expect(result.delivered).toBe(false)
+    expect(result.reason).toContain('PrivacyGuard')
+  })
+
+  it('allows messages when PrivacyGuard detects nothing suspicious', async () => {
+    markContextRead('agent-sender', 'agent-receiver')
+    const envelope = makeEnvelope({ content: 'normal message' })
+    const result = await bus.send(envelope)
+    expect(result.delivered).toBe(true)
   })
 })

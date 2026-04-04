@@ -5,7 +5,17 @@
  * validation -> content filter -> rate limit -> routing -> circuit breaker -> audit
  */
 
-export type A2AMessageType = 'prompt' | 'reply' | 'system' | 'approval_request'
+export type A2AMessageType =
+  | 'prompt'
+  | 'reply'
+  | 'system'
+  | 'approval_request'
+  | 'approval-request'
+  | 'approval-decision'
+  | 'guidance-request'
+  | 'guidance-response'
+  | 'coaching'
+  | 'self-improvement'
 
 export interface A2AMessage {
   id: string
@@ -17,6 +27,19 @@ export interface A2AMessage {
   contextSnapshot?: string
   timestamp: number
   read?: boolean
+  /** Escalation chain metadata */
+  escalationChain?: string[]
+  /** Original requester for escalated messages */
+  originAgentId?: string
+}
+
+export interface EscalationMeta {
+  /** Agent IDs in the escalation chain so far */
+  chain: string[]
+  /** Original requesting agent */
+  originAgentId: string
+  /** Where to route if CEO cannot handle: 'secretary' | 'user' */
+  ceoFallback?: 'secretary' | 'user'
 }
 
 export interface A2AEnvelope {
@@ -25,6 +48,8 @@ export interface A2AEnvelope {
   replyTo?: string
   priority: number
   expiresAt?: number
+  /** Escalation metadata for approval/guidance routing */
+  escalation?: EscalationMeta
 }
 
 export interface MiddlewareResult {

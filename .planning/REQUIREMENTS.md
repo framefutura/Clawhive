@@ -68,11 +68,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 #### Task Router
 
-- [ ] **AGENT-16**: Per-agent configurable heartbeat intervals with skip-if-busy guard (sql.js WASM constraint)
-- [ ] **AGENT-17**: Parent auto-delegation routes tasks down hierarchy by default
-- [ ] **AGENT-18**: User override: pick specific agent or assign task to team for collaboration
-- [ ] **AGENT-19**: Workload balancing distributes tasks across sub-agents based on availability
-- [ ] **AGENT-20**: Delegation chains carry originatingSecurityLevel; child execution capped at min(parentLevel, childLevel)
+- [x] **AGENT-16**: Per-agent configurable heartbeat intervals with skip-if-busy guard (sql.js WASM constraint)
+- [x] **AGENT-17**: Parent auto-delegation routes tasks down hierarchy by default
+- [x] **AGENT-18**: User override: pick specific agent or assign task to team for collaboration
+- [x] **AGENT-19**: Workload balancing distributes tasks across sub-agents based on availability
+- [x] **AGENT-20**: Delegation chains carry originatingSecurityLevel; child execution capped at min(parentLevel, childLevel)
 
 #### Team Manager
 
@@ -217,11 +217,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGENT-13 | Phase 4.02 | Complete |
 | AGENT-14 | Phase 4.02 | Complete |
 | AGENT-15 | Phase 4.02 | Complete |
-| AGENT-16 | Phase 4.03 | Pending |
-| AGENT-17 | Phase 4.03 | Pending |
-| AGENT-18 | Phase 4.03 | Pending |
-| AGENT-19 | Phase 4.03 | Pending |
-| AGENT-20 | Phase 4.03 | Pending |
+| AGENT-16 | Phase 4.03 | Complete |
+| AGENT-17 | Phase 4.03 | Complete |
+| AGENT-18 | Phase 4.03 | Complete |
+| AGENT-19 | Phase 4.03 | Complete |
+| AGENT-20 | Phase 4.03 | Complete |
 | AGENT-21 | Phase 4.01 + 4.04 | Pending |
 | AGENT-22 | Phase 4.04 | Pending |
 | AGENT-23 | Phase 4.04 | Pending |

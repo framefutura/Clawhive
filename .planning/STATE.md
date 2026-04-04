@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-04T13:54:09.245Z"
+last_updated: "2026-04-04T14:13:53.418Z"
 progress:
   total_phases: 13
   completed_phases: 2
   total_plans: 36
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # ClawHive Project State
@@ -33,7 +33,7 @@ Phase 4.06: 100% (1/1 plans — 04-06 complete)
 Phase 4.07: 100% (1/1 plans — 04-07 complete)
 Phase 5: 0% (0/4 plans — planned)
 Phase 6: 0% (0/3 plans — planned)
-Overall: 23/36 plans complete
+Overall: 25/36 plans complete
 
 ## Milestones
 
@@ -162,6 +162,7 @@ Self-improving overseer of entire company. CEO docs reference all sub-agents and
 - [Phase 04]: A2A inbox state lives in renderer App state and refreshes from secure IPC plus live a2a:message events instead of duplicating chat-store logic.
 - [Phase 04]: Doc persistence reuses existing agent:update IPC channel with full docs object instead of adding a second doc-only channel
 - [Phase 04]: Removed internal HierarchyViewSwitcher from OrgTree; outer switcher in App.tsx is single source of truth for view mode
+- [Phase 04]: TaskRouter uses min(originating, child.defaultSecurityLevel) for security propagation; explicit override returns error instead of silent fallback
 
 ### Phase 4 Specific Decisions (2026-03-31)
 

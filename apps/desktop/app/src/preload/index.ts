@@ -62,6 +62,7 @@ const api = {
   }) => ipcRenderer.invoke('agent:create', agent),
   getAgents: () => ipcRenderer.invoke('agent:list') as Promise<AgentRecord[]>,
   updateAgent: (id: string, updates: Partial<AgentRecord>) => ipcRenderer.invoke('agent:update', id, updates) as Promise<AgentRecord>,
+  deleteAgent: (id: string) => ipcRenderer.invoke('agent:delete', id) as Promise<{ success: boolean; id: string }>,
   getHierarchy: () => ipcRenderer.invoke('agent:hierarchy') as Promise<unknown>,
   getAgentGenes: (agentId: string) => ipcRenderer.invoke('agent:genes', agentId),
 

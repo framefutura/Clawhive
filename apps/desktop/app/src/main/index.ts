@@ -387,6 +387,11 @@ ipcMain.handle('agent:update', (_, id: string, updates: Record<string, unknown>)
   return agentRegistry.updateAgent(id, updates as never)
 })
 
+ipcMain.handle('agent:delete', (_, id: string) => {
+  agentRegistry.deleteAgent(id)
+  return { success: true, id }
+})
+
 ipcMain.handle('agent:hierarchy', () => {
   return agentRegistry.getHierarchy()
 })

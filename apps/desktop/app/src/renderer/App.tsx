@@ -16,6 +16,8 @@ import { RepairDialog } from './components/RepairDialog'
 import { AgentWizard } from './components/AgentWizard'
 import { AgentDetailPanel } from './components/AgentDetailPanel'
 import { TaskRouterPanel } from './components/TaskRouterPanel'
+import { SwarmView } from './components/SwarmView'
+import { TeamWorkspace } from './components/TeamWorkspace'
 import { OrgTree, type TreeNode } from './components/OrgTree'
 import { HierarchyViewSwitcher, type HierarchyViewMode } from './components/hierarchy/HierarchyViewSwitcher'
 import { useChatStore } from './stores/chatStore'
@@ -28,6 +30,7 @@ import type { GeneCategory } from './types'
 import type { TabType } from '../common/tab'
 import type { AgentRecord } from '../common/agent'
 import type { A2AMessage } from '../common/a2a'
+import type { TeamRecord, SharedMemory, CoachingEntry, TeamOkr } from '../common/team'
 import type { SecurityLevel, PermissionMatrix } from '../common/security'
 import type { ApprovalRequest } from '../main/security-manager'
 import './styles/shadcn-variables.css'
@@ -112,6 +115,8 @@ export default function App() {
   })
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [a2aMessages, setA2AMessages] = useState<A2AMessage[]>([])
+  const [teamViewOpen, setTeamViewOpen] = useState(false)
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
 
   // Approval dialog state
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null)
@@ -895,26 +900,52 @@ export default function App() {
           </div>
 
           <aside className="w-80 shrink-0 border-l bg-card/30">
-            <AgentDetailPanel
-              agent={rightPanelAgent}
-              pinned={rightPanelPinned}
-              onTogglePinned={() => {
-                if (rightPanelPinned) {
-                  setRightPanelPinned(false)
-                  setRightPanelSubjectId(selectedSubjectId)
-                } else {
-                  setRightPanelPinned(true)
-                  setRightPanelSubjectId(selectedSubjectId)
-                }
-              }}
-              onSaveAgentDoc={async (agentId, docKey, content) => {
-                const agent = agents.find(a => a.id === agentId)
-                if (!agent) return
-                const nextDocs = { ...agent.docs, [docKey]: content }
-                await window.clawhive.updateAgent(agentId, { docs: nextDocs })
-                await loadAgents()
-              }}
-            />
+            {teamViewOpen && activeTeamId ? (
+              <div className="flex flex-col h-full">
+                <SwarmView
+                  teamId={activeTeamId}
+                  teamName={activeTeamId}
+                  members={agents}
+                  agentStatuses={{}}
+                  activeTasks={{}}
+                  sharedMemories={[]}
+                  activityFeed={[]}
+                  onNavigateToAgent={handleSelectAgent}
+                />
+                <div className="border-t">
+                  <TeamWorkspace
+                    teamId={activeTeamId}
+                    teamName={activeTeamId}
+                    members={agents}
+                    sharedMemories={[]}
+                    fileTree={[]}
+                    coachingEntries={[]}
+                    okrs={[]}
+                  />
+                </div>
+              </div>
+            ) : (
+              <AgentDetailPanel
+                agent={rightPanelAgent}
+                pinned={rightPanelPinned}
+                onTogglePinned={() => {
+                  if (rightPanelPinned) {
+                    setRightPanelPinned(false)
+                    setRightPanelSubjectId(selectedSubjectId)
+                  } else {
+                    setRightPanelPinned(true)
+                    setRightPanelSubjectId(selectedSubjectId)
+                  }
+                }}
+                onSaveAgentDoc={async (agentId, docKey, content) => {
+                  const agent = agents.find(a => a.id === agentId)
+                  if (!agent) return
+                  const nextDocs = { ...agent.docs, [docKey]: content }
+                  await window.clawhive.updateAgent(agentId, { docs: nextDocs })
+                  await loadAgents()
+                }}
+              />
+            )}
           </aside>
         </div>
 

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-03T17:39:38.014Z"
+last_updated: "2026-04-04T03:14:29.237Z"
 progress:
   total_phases: 13
   completed_phases: 2
   total_plans: 31
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # ClawHive Project State
@@ -16,8 +16,8 @@ progress:
 **Project:** ClawHive
 **Status:** Executing Phase 04
 **Current_phase:** v1.1-multi-agent (04-multi-agent)
-**Next_phase:** 04-01 Agent Registry Foundation
-**Last_completed:** 2026-03-31 (Phase 3 Security Core)
+**Next_phase:** 04-06 A2A Escalation & Hub
+**Last_completed:** 2026-04-04 (Plan 04-04 A2A Messaging Foundation)
 
 ## Progress
 
@@ -27,13 +27,13 @@ Phase 3: 100% (5/5 plans complete)
 Phase 4.01: 0% (0/? plans — planned)
 Phase 4.02: 80% (4/5 plans — 04-02-04 complete)
 Phase 4.03: 100% (1/1 plans — 04-03 complete)
-Phase 4.04: 0% (0/? plans — planned)
+Phase 4.04: 100% (1/1 plans — 04-04 complete)
 Phase 4.05: 0% (0/? plans — planned)
-Phase 4.06: 0% (0/? plans — planned)
+Phase 4.06: 100% (1/1 plans — 04-06 complete)
 Phase 4.07: 0% (0/? plans — planned)
 Phase 5: 0% (0/4 plans — planned)
 Phase 6: 0% (0/3 plans — planned)
-Overall: 20/31 plans complete
+Overall: 22/31 plans complete
 
 ## Milestones
 
@@ -157,6 +157,9 @@ Self-improving overseer of entire company. CEO docs reference all sub-agents and
 - [Phase 04-02-04]: Embedded InteractionEditor in profile tab; role templates as flat files under ~/.clawhive/templates/; Secretary/CEO surfaces inside AgentDetailPanel
 - [Phase 04]: Reused existing teams/team_members tables; added shared_memories table only
 - [Phase 04]: Full-text memory search via SQL LIKE for MVP; vector search deferred to v2
+- [Phase 04]: Kept read-guard enforcement in the message bus validation layer and removed IPC auto-read so blind prompts stay blocked unless context is fetched explicitly.
+- [Phase 04]: Idle-agent prompts are queued as pending tasks while active-agent prompts are delivered immediately through bus subscriptions and renderer events.
+- [Phase 04]: A2A inbox state lives in renderer App state and refreshes from secure IPC plus live a2a:message events instead of duplicating chat-store logic.
 
 ### Phase 4 Specific Decisions (2026-03-31)
 

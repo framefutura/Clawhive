@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4.02: Agent Registry UI** — Interactive org tree, view modes, drag-drop, editor, Secretary/CEO agents
 - [ ] **Phase 4.03: Task Router** — Heartbeat scheduling, delegation, user override, workload balancing, security propagation
 - [ ] **Phase 4.04: Team Manager** — Agent/team storage, hybrid memory, sharing, collaboration, monitoring, coaching, OKR
-- [ ] **Phase 4.05: A2A Messaging Foundation** — Message bus pipeline, direct messaging, leader-to-leader
+- [x] **Phase 4.05: A2A Messaging Foundation** — Message bus pipeline, direct messaging, leader-to-leader
 - [ ] **Phase 4.06: A2A Escalation & Hub** — Approval chains, configurable paths, secretary bridge, message hub
 - [ ] **Phase 4.07: A2A Security & Coaching** — PrivacyGuard A2A scan, self-improvement flows, subagent parent ask
 - [ ] **Phase 5: Advanced Features** — Plan-first mode, knowledge bases, accounting/reports, skills & scheduling
@@ -284,7 +284,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 | 4.02. Agent Registry UI | v1.1 | 0/? | Planned |
 | 4.03. Task Router | v1.1 | 0/? | Planned |
 | 4.04. Team Manager | v1.1 | 0/? | Planned |
-| 4.05. A2A Messaging Foundation | v1.1 | 0/? | Planned |
+| 4.05. A2A Messaging Foundation | v1.1 | 1/1 | Complete (2026-04-04) |
 | 4.06. A2A Escalation & Hub | v1.1 | 0/? | Planned |
 | 4.07. A2A Security & Coaching | v1.1 | 0/? | Planned |
 | 5. Advanced Features | v1.0 | 0/4 | Planned |

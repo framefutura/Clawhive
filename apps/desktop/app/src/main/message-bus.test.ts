@@ -62,8 +62,8 @@ describe('MessageBus', () => {
     clearCircuitBreakers()
   })
 
-  it('has 6 middleware stages', () => {
-    expect(bus.getMiddlewareCount()).toBe(6)
+  it('has 7 middleware stages', () => {
+    expect(bus.getMiddlewareCount()).toBe(7)
   })
 
   it('delivers a valid message after read-guard is satisfied', async () => {

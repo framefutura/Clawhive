@@ -18,6 +18,8 @@ import type {
   SendResult,
 } from '../common/a2a.js'
 import { addActivityLog } from './storage.js'
+import { detectSuspicious } from './privacy-guard.js'
+import type { ActionRequest } from '../common/security.js'
 
 // ---------------------------------------------------------------------------
 // Read-guard registry: tracks which agent has "read" another agent's context
@@ -105,6 +107,51 @@ function validationMiddleware(envelope: A2AEnvelope): MiddlewareResult {
   if (message.type === 'prompt' && !hasReadContext(message.fromAgentId, message.toAgentId)) {
     return { passed: false, reason: 'Read-guard: sender must read target agent context before sending prompt' }
   }
+  return { passed: true }
+}
+
+/**
+ * PrivacyGuard middleware: scan every A2A message for suspicious patterns
+ */
+function privacyGuardMiddleware(envelope: A2AEnvelope): MiddlewareResult {
+  const { message } = envelope
+  const action: ActionRequest = {
+    type: 'execution',
+    command: message.content,
+    code: message.type === 'prompt' || message.type === 'reply' ? message.content : undefined,
+  }
+  const signals = detectSuspicious(action)
+
+  // Check if any suspicious signals are detected
+  const hasSuspicious =
+    signals.credentialAccess ||
+    signals.shellInjection ||
+    signals.obfuscation ||
+    signals.privilegeEscalation ||
+    signals.financialCrime
+
+  if (hasSuspicious) {
+    // Log the denial
+    try {
+      addActivityLog({
+        timestamp: Date.now(),
+        session_id: null,
+        agent_id: message.fromAgentId,
+        action_type: 'a2a:privacy-guard-denied',
+        decision: 'denied',
+        reason: `PrivacyGuard blocked suspicious message: credentialAccess=${signals.credentialAccess}, shellInjection=${signals.shellInjection}, obfuscation=${signals.obfuscation}, privilegeEscalation=${signals.privilegeEscalation}, financialCrime=${signals.financialCrime}`,
+        metadata: JSON.stringify({
+          messageId: message.id,
+          toAgentId: message.toAgentId,
+          type: message.type,
+        }),
+      })
+    } catch {
+      // Audit failure should not block
+    }
+    return { passed: false, reason: 'PrivacyGuard: suspicious content detected' }
+  }
+
   return { passed: true }
 }
 
@@ -212,6 +259,7 @@ type MessageHandler = (msg: A2AMessage) => void
 export class MessageBus {
   private middlewares: Middleware[] = [
     validationMiddleware,
+    privacyGuardMiddleware,
     contentFilterMiddleware,
     rateLimitMiddleware,
     routingMiddleware,

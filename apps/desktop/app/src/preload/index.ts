@@ -4,6 +4,7 @@ import type { WorkspaceRecord, WorkspaceUpdate } from '../common/workspace.js'
 import type { AgentRecord, AgentRole } from '../common/agent.js'
 import type { A2AMessage } from '../common/a2a.js'
 import type { UnknownRoleBehavior } from '../main/agent-mapper.js'
+import type { TaskRouteRequest, TaskRouteDecision, TaskRouterSnapshotDTO } from '../common/task-router.js'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
 const api = {
@@ -279,6 +280,16 @@ const api = {
       ipcRenderer.removeListener('a2a:message', listener)
     }
   },
+
+  // Task Router
+  taskRouterSetHeartbeat: (agentId: string, heartbeatIntervalMs: number) =>
+    ipcRenderer.invoke('taskRouter:setHeartbeat', agentId, heartbeatIntervalMs) as Promise<boolean>,
+  taskRouterEnqueue: (request: TaskRouteRequest) =>
+    ipcRenderer.invoke('taskRouter:enqueue', request) as Promise<TaskRouteDecision>,
+  taskRouterTick: (agentId: string) =>
+    ipcRenderer.invoke('taskRouter:tick', agentId) as Promise<TaskRouteDecision>,
+  taskRouterGetSnapshot: () =>
+    ipcRenderer.invoke('taskRouter:getSnapshot') as Promise<TaskRouterSnapshotDTO>,
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

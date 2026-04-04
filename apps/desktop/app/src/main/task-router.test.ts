@@ -5,37 +5,18 @@ vi.mock('./storage.js', () => ({
   addActivityLog: vi.fn(() => 'mock-id'),
 }))
 
-// Mock a2a-messaging exports used by task-router
-vi.mock('./a2a-messaging.js', () => {
-  const activeSessions = new Set<string>()
-  const pendingMap = new Map<string, unknown[]>()
-  return {
-    isAgentActive: (id: string) => activeSessions.has(id),
-    getPendingTasks: (id: string) => pendingMap.get(id) ?? [],
-    consumePendingTask: vi.fn(),
-    setAgentActive: (id: string) => activeSessions.add(id),
-    setAgentIdle: (id: string) => activeSessions.delete(id),
-    _activeSessions: activeSessions,
-    _pendingMap: pendingMap,
-  }
-})
+// Shared mock state for a2a-messaging
+const mockActiveSessions = new Set<string>()
+
+vi.mock('./a2a-messaging.js', () => ({
+  isAgentActive: (id: string) => mockActiveSessions.has(id),
+  getPendingTasks: () => [],
+  consumePendingTask: vi.fn(),
+}))
 
 import type { AgentRecord } from '../common/agent.js'
-import type { TaskRouteRequest, TaskSecurityLevel } from '../common/task-router.js'
 import { TaskRouter } from './task-router.js'
-import { AgentRegistry } from './agent-registry.js'
-
-// Helpers to control mock state
-function getA2AMock() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require('./a2a-messaging.js') as {
-    _activeSessions: Set<string>
-    _pendingMap: Map<string, unknown[]>
-    setAgentActive: (id: string) => void
-    setAgentIdle: (id: string) => void
-  }
-  return mod
-}
+import type { AgentRegistry } from './agent-registry.js'
 
 function makeAgent(overrides: Partial<AgentRecord> & { id: string; name: string; role: AgentRecord['role'] }): AgentRecord {
   return {
@@ -74,17 +55,14 @@ describe('TaskRouter', () => {
   const worker2 = makeAgent({ id: 'w2', name: 'Worker 2', role: 'Individual Agent', parentId: 'lead-1', defaultSecurityLevel: 'medium' })
 
   beforeEach(() => {
-    const a2a = getA2AMock()
-    a2a._activeSessions.clear()
-    a2a._pendingMap.clear()
+    mockActiveSessions.clear()
     const registry = createStubRegistry([ceo, lead, worker1, worker2])
     router = new TaskRouter(registry)
   })
 
   describe('heartbeat skip-if-busy', () => {
     it('skips a busy agent tick and does not consume pending work', () => {
-      const a2a = getA2AMock()
-      a2a.setAgentActive('w1')
+      mockActiveSessions.add('w1')
       router.setHeartbeat('w1', 5000)
 
       const result = router.tickAgent('w1')

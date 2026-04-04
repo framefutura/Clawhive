@@ -1030,6 +1030,29 @@ ipcMain.handle('session:create', (event, agentId: string, modelConfig: import('.
   return session
 })
 
+// IPC Handlers - Task Router
+import { TaskRouter } from './task-router.js'
+import type { TaskRouteRequest } from '../common/task-router.js'
+
+const taskRouter = new TaskRouter(agentRegistry)
+
+ipcMain.handle('taskRouter:setHeartbeat', (_, agentId: string, heartbeatIntervalMs: number) => {
+  taskRouter.setHeartbeat(agentId, heartbeatIntervalMs)
+  return true
+})
+
+ipcMain.handle('taskRouter:enqueue', (_, request: TaskRouteRequest) => {
+  return taskRouter.enqueueTask(request)
+})
+
+ipcMain.handle('taskRouter:tick', (_, agentId: string) => {
+  return taskRouter.tickAgent(agentId)
+})
+
+ipcMain.handle('taskRouter:getSnapshot', () => {
+  return taskRouter.getSnapshotDTO()
+})
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,

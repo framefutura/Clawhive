@@ -50,4 +50,14 @@ describe('App Wave 1 registry shell', () => {
     expect(source).toContain('hierarchyViewMode')
     expect(source).toContain('viewMode={hierarchyViewMode}')
   })
+
+  it('wires delete agent through the preload bridge', () => {
+    expect(source).toContain('window.clawhive.deleteAgent(')
+    expect(source).not.toContain('Delete agent not implemented yet')
+  })
+
+  it('wires doc save through onSaveAgentDoc callback', () => {
+    expect(source).toContain('onSaveAgentDoc={async (agentId, docKey, content)')
+    expect(source).toContain('window.clawhive.updateAgent(agentId, { docs: nextDocs })')
+  })
 })

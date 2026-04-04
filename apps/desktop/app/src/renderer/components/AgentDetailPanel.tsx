@@ -27,9 +27,10 @@ interface AgentDetailPanelProps {
   agent: AgentRecord | null
   pinned: boolean
   onTogglePinned: () => void
+  onSaveAgentDoc?: (agentId: string, docKey: string, content: string) => Promise<void>
 }
 
-export function AgentDetailPanel({ agent, pinned, onTogglePinned }: AgentDetailPanelProps) {
+export function AgentDetailPanel({ agent, pinned, onTogglePinned, onSaveAgentDoc }: AgentDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<AgentTab>('Profile')
 
   if (!agent) {
@@ -84,7 +85,7 @@ export function AgentDetailPanel({ agent, pinned, onTogglePinned }: AgentDetailP
       {/* Tab content */}
       <div className="flex-1 min-h-0 overflow-auto">
         {activeTab === 'Profile' && (
-          <ProfileTabContent agent={agent} />
+          <ProfileTabContent agent={agent} onSaveAgentDoc={onSaveAgentDoc} />
         )}
         {activeTab === 'Files' && (
           <FilesTabContent agent={agent} />
@@ -99,9 +100,10 @@ export function AgentDetailPanel({ agent, pinned, onTogglePinned }: AgentDetailP
 
 /* ---------- Profile tab ---------- */
 
-function ProfileTabContent({ agent }: { agent: AgentRecord }) {
+function ProfileTabContent({ agent, onSaveAgentDoc }: { agent: AgentRecord; onSaveAgentDoc?: (agentId: string, docKey: string, content: string) => Promise<void> }) {
   const [editingDoc, setEditingDoc] = useState<string | null>(null)
   const [docDraft, setDocDraft] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const DOC_FILES = ['soul.md', 'heartbeat.md', 'tools.md', 'agents.md', 'interaction.md'] as const
 
@@ -117,8 +119,17 @@ function ProfileTabContent({ agent }: { agent: AgentRecord }) {
     setDocDraft('')
   }
 
-  const handleSaveEdit = () => {
-    // Save will be wired to IPC in future task when doc persistence is added
+  const handleSaveEdit = async () => {
+    if (!editingDoc || !onSaveAgentDoc) return
+    const docKey = editingDoc.replace('.md', '')
+    setSaving(true)
+    try {
+      await onSaveAgentDoc(agent.id, docKey, docDraft)
+    } catch (err) {
+      console.error('Failed to save agent doc:', err)
+    } finally {
+      setSaving(false)
+    }
     setEditingDoc(null)
     setDocDraft('')
   }

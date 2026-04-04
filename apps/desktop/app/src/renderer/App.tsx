@@ -702,8 +702,18 @@ export default function App() {
                   setAgentWizardOpen(true)
                 }}
                 onEditAgent={handleSelectAgent}
-                onDeleteAgent={(id) => {
-                  console.warn('Delete agent not implemented yet', id)
+                onDeleteAgent={async (id) => {
+                  try {
+                    await window.clawhive.deleteAgent(id)
+                    // Clear selection state if the deleted agent was referenced
+                    if (selectedSubjectId === id) setSelectedSubjectId(null)
+                    if (rightPanelSubjectId === id) setRightPanelSubjectId(null)
+                    if (activeAgentId === id) setActiveAgentId(null)
+                    // Reload hierarchy
+                    await loadAgents()
+                  } catch (err) {
+                    console.error('Failed to delete agent:', err)
+                  }
                 }}
                 onReparentAgent={handleReparentAgent}
               />
@@ -894,6 +904,13 @@ export default function App() {
                   setRightPanelPinned(true)
                   setRightPanelSubjectId(selectedSubjectId)
                 }
+              }}
+              onSaveAgentDoc={async (agentId, docKey, content) => {
+                const agent = agents.find(a => a.id === agentId)
+                if (!agent) return
+                const nextDocs = { ...agent.docs, [docKey]: content }
+                await window.clawhive.updateAgent(agentId, { docs: nextDocs })
+                await loadAgents()
               }}
             />
           </aside>

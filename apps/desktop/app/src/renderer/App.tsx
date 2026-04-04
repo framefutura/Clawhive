@@ -26,6 +26,7 @@ import type { Provider } from './components/ModelPicker'
 import type { GeneCategory } from './types'
 import type { TabType } from '../common/tab'
 import type { AgentRecord } from '../common/agent'
+import type { A2AMessage } from '../common/a2a'
 import type { SecurityLevel, PermissionMatrix } from '../common/security'
 import type { ApprovalRequest } from '../main/security-manager'
 import './styles/shadcn-variables.css'
@@ -108,6 +109,7 @@ export default function App() {
     tools: {}, files: { read: [], write: [], deny: [] }, network: { allowHosts: [], denyHosts: [] }, execution: { shell: 'prompt', code: 'prompt' }
   })
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [a2aMessages, setA2AMessages] = useState<A2AMessage[]>([])
 
   // Approval dialog state
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null)
@@ -327,7 +329,42 @@ export default function App() {
     }
   }
 
-  // Subscribe to approval requests
+  useEffect(() => {
+    if (!activeAgentId) {
+      setA2AMessages([])
+      return
+    }
+
+    let mounted = true
+
+    const loadInbox = async () => {
+      try {
+        const inbox = await window.clawhive.a2aGetInbox()
+        if (mounted) {
+          setA2AMessages(inbox)
+        }
+      } catch (err) {
+        console.error('Failed to load A2A inbox:', err)
+      }
+    }
+
+    loadInbox()
+
+    const unsubscribe = window.clawhive.onA2AMessage((message) => {
+      setA2AMessages((prev) => {
+        if (prev.some(existing => existing.id === message.id)) {
+          return prev
+        }
+        return [...prev, message]
+      })
+    })
+
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
+  }, [activeAgentId])
+
   useEffect(() => {
     const unsubscribe = window.clawhive.onSecurityApprovalRequested((request: unknown) => {
       setPendingApproval(request as ApprovalRequest)
@@ -516,6 +553,39 @@ export default function App() {
     ? agents.find(agent => agent.id === rightPanelSubjectId) ?? null
     : null
 
+  const handleA2AMarkRead = useCallback(async (messageId: string) => {
+    setA2AMessages(prev => prev.map(message => (
+      message.id === messageId ? { ...message, read: true } : message
+    )))
+
+    try {
+      await window.clawhive.a2aMarkRead(messageId)
+    } catch (err) {
+      console.error('Failed to mark A2A message as read:', err)
+    }
+  }, [])
+
+  const handleA2AReply = useCallback(async (messageId: string, content: string) => {
+    try {
+      await window.clawhive.a2aReplyToMessage(messageId, content)
+      const inbox = await window.clawhive.a2aGetInbox()
+      setA2AMessages(inbox)
+    } catch (err) {
+      console.error('Failed to reply to A2A message:', err)
+    }
+  }, [])
+
+  const handleA2ASendPrompt = useCallback(async (toAgentId: string, content: string) => {
+    try {
+      await window.clawhive.a2aReadAgentContext(toAgentId)
+      await window.clawhive.a2aSendPrompt(toAgentId, content)
+      const inbox = await window.clawhive.a2aGetInbox()
+      setA2AMessages(inbox)
+    } catch (err) {
+      console.error('Failed to send A2A prompt:', err)
+    }
+  }, [])
+
   const handleSelectAgent = (id: string) => {
     setActiveAgentId(id)
     setSelectedSubjectId(id)
@@ -701,7 +771,17 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <ChatView messages={messages} isWorking={isWorking} onSend={sendMessage} />
+                    <ChatView
+                      messages={messages}
+                      isWorking={isWorking}
+                      onSend={sendMessage}
+                      a2aMessages={a2aMessages}
+                      agents={agents.map(agent => ({ id: agent.id, name: agent.name }))}
+                      agentId={activeAgentId ?? undefined}
+                      onA2AReply={handleA2AReply}
+                      onA2AMarkRead={handleA2AMarkRead}
+                      onA2ASendPrompt={handleA2ASendPrompt}
+                    />
                   </div>
                 </>
               ) : activeTab.type === 'workspace' ? (

@@ -944,8 +944,6 @@ ipcMain.handle('a2a:sendPrompt', async (_, toAgentId: string, content: string) =
   if (!fromAgentId) {
     throw new Error('No active agent set for A2A messaging')
   }
-  // Auto-read context before sending (convenience wrapper for IPC)
-  messaging.readContext(fromAgentId, toAgentId)
   return messaging.sendPrompt(fromAgentId, toAgentId, content)
 })
 

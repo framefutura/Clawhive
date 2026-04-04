@@ -1053,6 +1053,64 @@ ipcMain.handle('taskRouter:getSnapshot', () => {
   return taskRouter.getSnapshotDTO()
 })
 
+// IPC Handlers - Team Manager
+import { TeamManager } from './team-manager.js'
+import type { SharedMemory } from '../common/team.js'
+
+const teamManager = new TeamManager()
+
+ipcMain.handle('team:create', async (_, name: string, leaderId: string, department?: string) => {
+  return teamManager.createTeam(name, leaderId, department)
+})
+
+ipcMain.handle('team:list', (_, agentId?: string) => {
+  return teamManager.listTeams(agentId)
+})
+
+ipcMain.handle('team:members', (_, teamId: string) => {
+  return teamManager.listMembers(teamId)
+})
+
+ipcMain.handle('team:addMember', async (_, teamId: string, agentId: string) => {
+  return teamManager.addMember(teamId, agentId)
+})
+
+ipcMain.handle('team:removeMember', (_, teamId: string, agentId: string) => {
+  return teamManager.removeMember(teamId, agentId)
+})
+
+ipcMain.handle('team:delete', async (_, teamId: string) => {
+  return teamManager.deleteTeam(teamId)
+})
+
+ipcMain.handle('team:shareMemory', (_, teamId: string, agentId: string, memory: Omit<SharedMemory, 'id' | 'sharedAt' | 'teamId' | 'agentId'>) => {
+  return teamManager.shareMemory(teamId, agentId, memory)
+})
+
+ipcMain.handle('team:queryMemory', (_, teamId: string, query: string, tags?: string[]) => {
+  return teamManager.queryMemory(teamId, query, tags)
+})
+
+ipcMain.handle('team:memories', (_, teamId: string) => {
+  return teamManager.getTeamMemories(teamId)
+})
+
+ipcMain.handle('team:coaching:create', (_, teamId: string, leaderId: string, agentId: string, note: string) => {
+  return teamManager.createCoachingEntry(teamId, leaderId, agentId, note)
+})
+
+ipcMain.handle('team:coaching:list', (_, teamId: string) => {
+  return teamManager.listCoachingEntries(teamId)
+})
+
+ipcMain.handle('team:okr:create', (_, teamId: string, leaderId: string, okr: { objective: string; keyResults: string[]; reviewCadence: 'weekly' | 'biweekly' | 'monthly' }) => {
+  return teamManager.createOkr(teamId, leaderId, okr)
+})
+
+ipcMain.handle('team:okr:list', (_, teamId: string) => {
+  return teamManager.listOkrs(teamId)
+})
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,

@@ -5,6 +5,7 @@ import type { AgentRecord, AgentRole } from '../common/agent.js'
 import type { A2AMessage } from '../common/a2a.js'
 import type { UnknownRoleBehavior } from '../main/agent-mapper.js'
 import type { TaskRouteRequest, TaskRouteDecision, TaskRouterSnapshotDTO } from '../common/task-router.js'
+import type { TeamRecord, SharedMemory, CoachingEntry, TeamOkr } from '../common/team.js'
 
 // Secure IPC bridge - renderer can ONLY call invoke channels defined here
 const api = {
@@ -290,6 +291,34 @@ const api = {
     ipcRenderer.invoke('taskRouter:tick', agentId) as Promise<TaskRouteDecision>,
   taskRouterGetSnapshot: () =>
     ipcRenderer.invoke('taskRouter:getSnapshot') as Promise<TaskRouterSnapshotDTO>,
+
+  // Team Manager
+  createTeam: (name: string, leaderId: string, department?: string) =>
+    ipcRenderer.invoke('team:create', name, leaderId, department) as Promise<TeamRecord>,
+  listTeams: (agentId?: string) =>
+    ipcRenderer.invoke('team:list', agentId) as Promise<TeamRecord[]>,
+  getTeamMembers: (teamId: string) =>
+    ipcRenderer.invoke('team:members', teamId) as Promise<unknown[]>,
+  addTeamMember: (teamId: string, agentId: string) =>
+    ipcRenderer.invoke('team:addMember', teamId, agentId) as Promise<void>,
+  removeTeamMember: (teamId: string, agentId: string) =>
+    ipcRenderer.invoke('team:removeMember', teamId, agentId) as Promise<void>,
+  deleteTeam: (teamId: string) =>
+    ipcRenderer.invoke('team:delete', teamId) as Promise<void>,
+  teamShareMemory: (teamId: string, agentId: string, memory: Omit<SharedMemory, 'id' | 'sharedAt' | 'teamId' | 'agentId'>) =>
+    ipcRenderer.invoke('team:shareMemory', teamId, agentId, memory) as Promise<SharedMemory>,
+  teamQueryMemory: (teamId: string, query: string, tags?: string[]) =>
+    ipcRenderer.invoke('team:queryMemory', teamId, query, tags) as Promise<SharedMemory[]>,
+  teamGetMemories: (teamId: string) =>
+    ipcRenderer.invoke('team:memories', teamId) as Promise<SharedMemory[]>,
+  teamCreateCoaching: (teamId: string, leaderId: string, agentId: string, note: string) =>
+    ipcRenderer.invoke('team:coaching:create', teamId, leaderId, agentId, note) as Promise<CoachingEntry>,
+  teamListCoaching: (teamId: string) =>
+    ipcRenderer.invoke('team:coaching:list', teamId) as Promise<CoachingEntry[]>,
+  teamCreateOkr: (teamId: string, leaderId: string, okr: { objective: string; keyResults: string[]; reviewCadence: 'weekly' | 'biweekly' | 'monthly' }) =>
+    ipcRenderer.invoke('team:okr:create', teamId, leaderId, okr) as Promise<TeamOkr>,
+  teamListOkrs: (teamId: string) =>
+    ipcRenderer.invoke('team:okr:list', teamId) as Promise<TeamOkr[]>,
 }
 
 contextBridge.exposeInMainWorld('clawhive', api)

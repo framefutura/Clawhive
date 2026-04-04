@@ -76,13 +76,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 #### Team Manager
 
-- [ ] **AGENT-21**: Agent isolated storage: ~/.clawhive/agents/<id>/; Team shared storage: ~/.clawhive/teams/<team-id>/
-- [ ] **AGENT-22**: Hybrid shared+private memory: team has shared files/summary + each agent has private context
-- [ ] **AGENT-23**: Selective conversation sharing: agents can share specific messages/threads with team peers
-- [ ] **AGENT-24**: Team agents can collaborate on shared tasks with pooled context
-- [ ] **AGENT-25**: Leaders monitor subagent work and correct errors/issues proactively
-- [ ] **AGENT-26**: Leaders coach subagents for future improvement (feedback loops)
-- [ ] **AGENT-27**: Full OKR system: leaders set goals, track key results, periodic reviews visible in leader dashboard
+- [x] **AGENT-21**: Agent isolated storage: ~/.clawhive/agents/<id>/; Team shared storage: ~/.clawhive/teams/<team-id>/
+- [x] **AGENT-22**: Hybrid shared+private memory: team has shared files/summary + each agent has private context
+- [x] **AGENT-23**: Selective conversation sharing: agents can share specific messages/threads with team peers
+- [x] **AGENT-24**: Team agents can collaborate on shared tasks with pooled context
+- [x] **AGENT-25**: Leaders monitor subagent work and correct errors/issues proactively
+- [x] **AGENT-26**: Leaders coach subagents for future improvement (feedback loops)
+- [x] **AGENT-27**: Full OKR system: leaders set goals, track key results, periodic reviews visible in leader dashboard
 
 #### Agent Messaging
 
@@ -222,13 +222,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGENT-18 | Phase 4.03 | Complete |
 | AGENT-19 | Phase 4.03 | Complete |
 | AGENT-20 | Phase 4.03 | Complete |
-| AGENT-21 | Phase 4.01 + 4.04 | Pending |
-| AGENT-22 | Phase 4.04 | Pending |
-| AGENT-23 | Phase 4.04 | Pending |
-| AGENT-24 | Phase 4.04 | Pending |
-| AGENT-25 | Phase 4.04 | Pending |
-| AGENT-26 | Phase 4.04 | Pending |
-| AGENT-27 | Phase 4.04 | Pending |
+| AGENT-21 | Phase 4.01 + 4.04 | Complete |
+| AGENT-22 | Phase 4.04 | Complete |
+| AGENT-23 | Phase 4.04 | Complete |
+| AGENT-24 | Phase 4.04 | Complete |
+| AGENT-25 | Phase 4.04 | Complete |
+| AGENT-26 | Phase 4.04 | Complete |
+| AGENT-27 | Phase 4.04 | Complete |
 | AGENT-28 | Phase 4.05 | Pending |
 | AGENT-29 | Phase 4.05 | Pending |
 | AGENT-30 | Phase 4.06 | Pending |

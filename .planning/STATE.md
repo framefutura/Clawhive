@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-04T14:13:53.418Z"
+last_updated: "2026-04-04T14:40:03.174Z"
 progress:
   total_phases: 13
   completed_phases: 2
   total_plans: 36
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # ClawHive Project State
@@ -163,6 +163,7 @@ Self-improving overseer of entire company. CEO docs reference all sub-agents and
 - [Phase 04]: Doc persistence reuses existing agent:update IPC channel with full docs object instead of adding a second doc-only channel
 - [Phase 04]: Removed internal HierarchyViewSwitcher from OrgTree; outer switcher in App.tsx is single source of truth for view mode
 - [Phase 04]: TaskRouter uses min(originating, child.defaultSecurityLevel) for security propagation; explicit override returns error instead of silent fallback
+- [Phase 04]: Extended SharedMemory with minSecurityLevel and sharedScope; added coaching_entries and team_okrs tables to active storage
 
 ### Phase 4 Specific Decisions (2026-03-31)
 

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-04T13:32:52.324Z"
+last_updated: "2026-04-04T13:54:09.245Z"
 progress:
   total_phases: 13
   completed_phases: 2
   total_plans: 36
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # ClawHive Project State
@@ -161,6 +161,7 @@ Self-improving overseer of entire company. CEO docs reference all sub-agents and
 - [Phase 04]: Idle-agent prompts are queued as pending tasks while active-agent prompts are delivered immediately through bus subscriptions and renderer events.
 - [Phase 04]: A2A inbox state lives in renderer App state and refreshes from secure IPC plus live a2a:message events instead of duplicating chat-store logic.
 - [Phase 04]: Doc persistence reuses existing agent:update IPC channel with full docs object instead of adding a second doc-only channel
+- [Phase 04]: Removed internal HierarchyViewSwitcher from OrgTree; outer switcher in App.tsx is single source of truth for view mode
 
 ### Phase 4 Specific Decisions (2026-03-31)
 

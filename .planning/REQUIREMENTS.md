@@ -51,13 +51,13 @@ Requirements for initial release. Each maps to roadmap phases.
 #### Agent Registry
 
 - [x] **AGENT-01**: User can create agents with custom roles, responsibilities, and rich identity docs (soul.md, heartbeat.md, tools.md, agents.md)
-- [ ] **AGENT-02**: User can organize agents in configurable-depth hierarchy (CEO/CFO/COO → Dept → Team → Agent)
+- [x] **AGENT-02**: User can organize agents in configurable-depth hierarchy (CEO/CFO/COO → Dept → Team → Agent)
 - [ ] **AGENT-03**: 7 predefined role templates (CEO, CFO, COO, Dept Head, Team Leader, Individual Agent, Secretary) — each with explicit functions, org structure, decision-making authority, job duties
 - [x] **AGENT-04**: Agent lifecycle: persistent, ephemeral, or user-chooses-per-agent
 - [x] **AGENT-05**: Agent CRUD (create, read, update, delete, archive)
 - [x] **AGENT-06**: Agent role permissions inherit/override Phase 3 Security Core roles (SEC-08)
 - [x] **AGENT-07**: Interactive org tree displays hierarchy in left pane with live status overlay (busy/idle/error)
-- [ ] **AGENT-08**: Org tree supports all 3 view modes: hierarchical tree, company org chart, teams+flat-roles
+- [x] **AGENT-08**: Org tree supports all 3 view modes: hierarchical tree, company org chart, teams+flat-roles
 - [x] **AGENT-09**: Drag-drop reparenting across all 3 org modes with cycle detection
 - [x] **AGENT-10**: User can add/remove per-agent customizations: skills, knowledge docs, MCP servers, CLI tools, document references, tools
 - [x] **AGENT-11**: Secretary agent bridges top leader to user — acts as full agent in hierarchy AND system-level approval interface
@@ -203,13 +203,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-09 | Phase 3 | Complete |
 | SEC-10 | Phase 3 | Complete |
 | AGENT-01 | Phase 4.01 + 4.02 | Complete |
-| AGENT-02 | Phase 4.02 | Pending |
+| AGENT-02 | Phase 4.02 | Complete |
 | AGENT-03 | Phase 4.01 | Pending |
 | AGENT-04 | Phase 4.01 | Complete |
 | AGENT-05 | Phase 4.01 | Complete |
 | AGENT-06 | Phase 4.01 | Complete |
 | AGENT-07 | Phase 4.02 | Complete |
-| AGENT-08 | Phase 4.02 | Pending |
+| AGENT-08 | Phase 4.02 | Complete |
 | AGENT-09 | Phase 4.02 | Complete |
 | AGENT-10 | Phase 4.02 | Complete |
 | AGENT-11 | Phase 4.02 | Complete |

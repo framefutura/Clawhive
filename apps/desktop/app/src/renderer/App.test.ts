@@ -60,4 +60,11 @@ describe('App Wave 1 registry shell', () => {
     expect(source).toContain('onSaveAgentDoc={async (agentId, docKey, content)')
     expect(source).toContain('window.clawhive.updateAgent(agentId, { docs: nextDocs })')
   })
+
+  it('passes onViewModeChange to OrgTree or keeps only the outer switcher', () => {
+    // The outer HierarchyViewSwitcher is wired to setHierarchyViewMode
+    expect(source).toContain('onChange={setHierarchyViewMode}')
+    // OrgTree should not have an internal inert switcher
+    expect(source).toContain('<OrgTree')
+  })
 })

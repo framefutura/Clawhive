@@ -32,9 +32,9 @@ Phase 4.05: 100% (1/1 plans — 04-05 complete)
 Phase 4.06: 100% (1/1 plans — 04-06 complete)
 Phase 4.07: 100% (1/1 plans — 04-07 complete)
 Phase 4 GAPS: 100% (2/2 plans complete)
-Phase 5: 0% (0/4 plans — planned)
-Phase 6: 0% (0/3 plans — planned)
-Overall: 28/36 plans complete
+Phase 5: 100% (4/4 plans — built)
+Phase 6: 25% (1/4 plans — 06-01, 06-04 complete)
+Overall: 30/36 plans complete
 
 ## Milestones
 
@@ -73,6 +73,8 @@ Overall: 28/36 plans complete
 | Plan 04-07 complete | done | 2026-04-04 |
 | Plan 04-11 complete | done | 2026-04-04 |
 | Plan 04-GAPS-preload-fix complete | done | 2026-04-05 |
+| Plan 06-01 complete (i18n) | done | 2026-04-06 |
+| Plan 06-04 complete (custom providers) | done | 2026-04-06 |
 
 ## Phase 4 Structure (v1.1 — 38 Requirements, 7 Plans)
 

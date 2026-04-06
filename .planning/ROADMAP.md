@@ -285,8 +285,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 | 4.03. Task Router | v1.1 | 0/? | Planned |
 | 4.04. Team Manager | v1.1 | 0/? | Planned |
 | 4.05. A2A Messaging Foundation | v1.1 | 1/1 | Complete (2026-04-04) |
-| 4.06. A2A Escalation & Hub | v1.1 | 0/? | Planned |
-| 4.07. A2A Security & Coaching | v1.1 | 0/? | Planned |
+| 4.06. A2A Escalation & Hub | v1.1 | 1/1 | Complete (2026-04-05) |
+| 4.07. A2A Security & Coaching | v1.1 | 1/1 | Complete (2026-04-05) |
 | 5. Advanced Features | v1.0 | 0/4 | Planned |
 | 6. Polish & Distribution | v1.0 | 0/3 | Planned |
 

@@ -1,0 +1,150 @@
+{
+  "app": {
+    "name": "ClawHive",
+    "loading": "Loading...",
+    "error": "Error"
+  },
+  "nav": {
+    "chat": "Chat",
+    "workspace": "Workspace",
+    "files": "Files",
+    "browser": "Browser",
+    "settings": "Settings",
+    "agents": "Agents",
+    "teams": "Teams"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "agent": {
+    "createAgent": "Create Agent",
+    "editAgent": "Edit Agent",
+    "deleteAgent": "Delete Agent",
+    "agentName": "Agent Name",
+    "agentRole": "Role",
+    "agentGenes": "Genes",
+    "agentModel": "Model",
+    "agentSecurity": "Security Level",
+    "agentStatus": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "selectAgent": "Select Agent",
+    "noAgents": "No agents configured"
+  },
+  "task": {
+    "newTask": "New Task",
+    "taskQueue": "Task Queue",
+    "planFirst": "Plan First",
+    "approve": "Approve",
+    "reject": "Reject",
+    "pending": "Pending",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "session": {
+    "newSession": "New Session",
+    "endSession": "End Session",
+    "sessionHistory": "History",
+    "noSessions": "No sessions"
+  },
+  "security": {
+    "securityLevel": "Security Level",
+    "minimal": "Minimal",
+    "standard": "Standard",
+    "strict": "Strict",
+    "maximum": "Maximum",
+    "sensitiveData": "Sensitive Data",
+    "privacySettings": "Privacy Settings"
+  },
+  "settings": {
+    "general": "General",
+    "appearance": "Appearance",
+    "language": "Language",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "about": "About",
+    "version": "Version",
+    "customProvider": {
+      "title": "Custom LLM Provider",
+      "description": "Connect to any OpenAI-compatible API (Ollama, LM Studio, etc.)",
+      "baseURL": "Base URL",
+      "baseURLPlaceholder": "http://localhost:11434/v1",
+      "apiKey": "API Key (optional)",
+      "apiKeyPlaceholder": "Enter API key if required",
+      "testConnection": "Test",
+      "testing": "Testing...",
+      "connectionSuccess": "Connection successful!",
+      "connectionFailed": "Connection failed. Check URL and try again."
+    },
+    "temperature": "Temperature",
+    "maxTokens": "Max Tokens"
+  },
+  "errors": {
+    "cliMissing": "CLI not found. Please install openclaw.",
+    "connectionFailed": "Connection failed. Please check your network.",
+    "budgetExceeded": "Budget exceeded. Please request additional tokens.",
+    "unauthorized": "Unauthorized. Please log in.",
+    "notFound": "Not found",
+    "unknownError": "An unknown error occurred"
+  },
+  "budget": {
+    "budget": "Budget",
+    "allocated": "Allocated",
+    "used": "Used",
+    "remaining": "Remaining",
+    "requestMore": "Request More",
+    "approveRequest": "Approve Request",
+    "denyRequest": "Deny Request",
+    "pendingRequests": "Pending Requests",
+    "justification": "Justification"
+  },
+  "knowledge": {
+    "knowledgeBase": "Knowledge Base",
+    "addSource": "Add Source",
+    "removeSource": "Remove Source",
+    "reindex": "Reindex",
+    "indexing": "Indexing...",
+    "searchKnowledge": "Search Knowledge"
+  },
+  "skills": {
+    "skillStore": "Skill Store",
+    "installSkill": "Install Skill",
+    "uninstallSkill": "Uninstall Skill",
+    "installedSkills": "Installed Skills",
+    "noSkills": "No skills installed"
+  },
+  "schedule": {
+    "schedules": "Schedules",
+    "createSchedule": "Create Schedule",
+    "deleteSchedule": "Delete Schedule",
+    "cronExpression": "Cron Expression",
+    "nextRun": "Next Run",
+    "lastRun": "Last Run",
+    "active": "Active",
+    "disabled": "Disabled"
+  },
+  "modelPicker": {
+    "fetchingModels": "Fetching models...",
+    "fetchError": "Failed to fetch models",
+    "manualEntry": "Enter model manually",
+    "manualEntryPlaceholder": "e.g., llama3.2"
+  }
+}

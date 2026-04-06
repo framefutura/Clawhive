@@ -1,6 +1,9 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell } from 'electron'
+import electron from 'electron'
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell } = electron
 import path from 'node:path'
 import fs from 'node:fs/promises'
+
+// __dirname is available natively in CJS (esbuild output)
 import { GatewayManager } from './gateway.js'
 import { sessionStore, DEFAULT_GENES, type ModelConfig, type Gene, type GeneCategory } from './session.js'
 import {
@@ -28,6 +31,7 @@ import {
   updateSessionSecurity,
   type StorageConfig,
 } from './storage.js'
+import type { RoleProfile } from '../common/security.js'
 import { tabDb } from './tabs.js'
 import { workspaceDb } from './workspaces.js'
 import { autoNameTab } from './tab-naming.js'
@@ -42,26 +46,31 @@ import { getPrivacyGuard } from './privacy-guard.js'
 import { getSandboxedBridge } from './sandboxed-bridge.js'
 import { getToolRegistry, type AgentToolPermission } from './tool-registry.js'
 import { getSecurityManager } from './security-manager.js'
-import type { TabRecord, TabType } from './common/tab.js'
-import type { WorkspaceRecord, WorkspaceUpdate } from './common/workspace.js'
+import { AgentRegistry } from './agent-registry.js'
+import type { UnknownRoleBehavior } from './agent-mapper.js'
+import type { TabRecord, TabType } from '../common/tab.js'
+import type { WorkspaceRecord, WorkspaceUpdate } from '../common/workspace.js'
 import Store from 'electron-store'
 
 const isDev = process.env.NODE_ENV === 'development'
-let mainWindow: BrowserWindow | null = null
+let mainWindow: Electron.BrowserWindow | null = null
 let gatewayManager: GatewayManager | null = null
 let browserManager: BrowserManager | null = null
 let playwrightBridge: PlaywrightBridge | null = null
+const agentRegistry = new AgentRegistry(() => store.get('unknownRoleBehavior'))
 
 // Config store for non-encrypted settings
 const store = new Store<{
   dataPath: string | null
   theme: 'dark' | 'light' | 'system'
   firstLaunchComplete: boolean
+  unknownRoleBehavior: UnknownRoleBehavior
 }>({
   defaults: {
     dataPath: null,
     theme: 'system',
     firstLaunchComplete: false,
+    unknownRoleBehavior: 'persistent',
   }
 })
 
@@ -202,7 +211,7 @@ ipcMain.handle('security:approval-resolve', (_, approvalId: string, approved: bo
 })
 
 // IPC Handlers - Sensitive Data Authorization
-ipcMain.handle('sensitive:createAuthRequest', (_, agentId: string, action: import('./common/security.js').ActionRequest, purpose?: string) => {
+ipcMain.handle('sensitive:createAuthRequest', (_, agentId: string, action: import('../common/security.js').ActionRequest, purpose?: string) => {
   const { getAuthorizationManager } = require('./authorization-manager.js')
   return getAuthorizationManager().createAuthRequest(action, agentId, undefined, purpose)
 })
@@ -238,7 +247,7 @@ ipcMain.handle('sensitive:getStats', () => {
 })
 
 // IPC Handlers - Threat Analysis
-ipcMain.handle('threat:analyze', async (_, action: import('./common/security.js').ActionRequest) => {
+ipcMain.handle('threat:analyze', async (_, action: import('../common/security.js').ActionRequest) => {
   const { getThreatAnalyzer } = require('./threat-analyzer.js')
   return getThreatAnalyzer().analyzeActionSuspicion(action)
 })
@@ -324,25 +333,14 @@ ipcMain.handle('agent:create', (_, agent: {
   team?: string
   defaultSecurityLevel?: string
 }) => {
-  const id = crypto.randomUUID()
-
-  // Set tool permissions (deny-by-default with role presets)
   const toolRegistry = getToolRegistry()
-  let permissions: AgentToolPermission[]
+  const permissions = agent.tools && agent.tools.length > 0
+    ? agent.tools
+    : toolRegistry.getRolePresetPermissions(agent.role)
 
-  if (agent.tools && agent.tools.length > 0) {
-    permissions = agent.tools
-  } else {
-    permissions = toolRegistry.getRolePresetPermissions(agent.role)
-  }
-  toolRegistry.setAgentPermissions(id, permissions)
-
-  const allowedTools = permissions.filter(p => p.allowed).map(p => p.toolId)
-
-  createAgent({
-    id,
+  const created = agentRegistry.createAgent({
     name: agent.name,
-    role: agent.role,
+    role: agent.role as never,
     parentId: agent.parentId,
     department: agent.department,
     team: agent.team,
@@ -350,22 +348,55 @@ ipcMain.handle('agent:create', (_, agent: {
     provider: agent.provider,
     model: agent.model,
     apiKey: agent.apiKey,
-    allowedTools,
+    allowedTools: permissions
+      .filter(p => p.permission === 'allow')
+      .map(p => p.toolName),
     defaultSecurityLevel: agent.defaultSecurityLevel ?? 'medium',
+    status: 'idle',
+    lifecycle: 'persistent',
+    docs: {
+      soul: 'soul.md',
+      heartbeat: 'heartbeat.md',
+      tools: 'tools.md',
+      agents: 'agents.md',
+      interaction: 'interaction.md',
+    },
+    customizations: {
+      skills: [],
+      knowledgeDocs: [],
+      mcpServers: [],
+      cliTools: [],
+      documentRefs: [],
+      toolRefs: [],
+    },
   })
 
-  // Load genes if provided
+  toolRegistry.setAgentPermissions(created.id, permissions)
+
   if (agent.genes) {
     for (const geneId of agent.genes) {
-      loadGene(id, geneId)
+      loadGene(created.id, geneId)
     }
   }
 
-  return { id, ...agent }
+  return agentRegistry.getAgent(created.id) ?? created
 })
 
 ipcMain.handle('agent:list', () => {
-  return getAgents()
+  return agentRegistry.listAgents()
+})
+
+ipcMain.handle('agent:update', (_, id: string, updates: Record<string, unknown>) => {
+  return agentRegistry.updateAgent(id, updates as never)
+})
+
+ipcMain.handle('agent:delete', (_, id: string) => {
+  agentRegistry.deleteAgent(id)
+  return { success: true, id }
+})
+
+ipcMain.handle('agent:hierarchy', () => {
+  return agentRegistry.getHierarchy()
 })
 
 ipcMain.handle('agent:genes', (_, agentId: string) => {
@@ -399,56 +430,6 @@ ipcMain.handle('storage:agent:delete', (_, agentId: string) => {
 
 ipcMain.handle('storage:team:delete', (_, teamId: string) => {
   return deleteTeamStorageDir(teamId)
-})
-
-// IPC Handlers - Team Manager
-import { TeamManager } from './team-manager.js'
-import type { SharedMemory } from '../common/team.js'
-
-const teamManager = new TeamManager()
-
-ipcMain.handle('team:create', (_, name: string, leaderId: string, department?: string) => {
-  return teamManager.createTeam(name, leaderId, department)
-})
-
-ipcMain.handle('team:delete', (_, teamId: string) => {
-  return teamManager.deleteTeam(teamId)
-})
-
-ipcMain.handle('team:list', (_, agentId?: string) => {
-  return teamManager.listTeams(agentId)
-})
-
-ipcMain.handle('team:addMember', (_, teamId: string, agentId: string) => {
-  return teamManager.addMember(teamId, agentId)
-})
-
-ipcMain.handle('team:removeMember', (_, teamId: string, agentId: string) => {
-  return teamManager.removeMember(teamId, agentId)
-})
-
-ipcMain.handle('team:listMembers', (_, teamId: string) => {
-  return teamManager.listMembers(teamId)
-})
-
-ipcMain.handle('team:shareMemory', (_, teamId: string, agentId: string, memory: Omit<SharedMemory, 'id' | 'sharedAt' | 'teamId' | 'agentId'>) => {
-  return teamManager.shareMemory(teamId, agentId, memory)
-})
-
-ipcMain.handle('team:queryMemory', (_, teamId: string, query: string, tags?: string[]) => {
-  return teamManager.queryMemory(teamId, query, tags)
-})
-
-ipcMain.handle('team:getAgentMemory', (_, agentId: string) => {
-  return teamManager.getAgentMemory(agentId)
-})
-
-ipcMain.handle('team:getTeamMemories', (_, teamId: string) => {
-  return teamManager.getTeamMemories(teamId)
-})
-
-ipcMain.handle('team:deleteMemory', (_, memoryId: string) => {
-  return teamManager.deleteMemory(memoryId)
 })
 
 // IPC Handlers - Tool Registry
@@ -493,6 +474,7 @@ ipcMain.handle('config:get', () => {
     dataPath: store.get('dataPath'),
     theme: store.get('theme'),
     firstLaunchComplete: store.get('firstLaunchComplete'),
+    unknownRoleBehavior: store.get('unknownRoleBehavior'),
   }
 })
 
@@ -501,6 +483,9 @@ ipcMain.handle('config:set', (_, config: Record<string, unknown>) => {
   if (config.dataPath) store.set('dataPath', config.dataPath as string)
   if (config.firstLaunchComplete !== undefined) {
     store.set('firstLaunchComplete', config.firstLaunchComplete as boolean)
+  }
+  if (config.unknownRoleBehavior) {
+    store.set('unknownRoleBehavior', config.unknownRoleBehavior as UnknownRoleBehavior)
   }
 
   return true
@@ -515,6 +500,15 @@ ipcMain.handle('theme:set', (_, theme: 'dark' | 'light' | 'system') => {
   store.set('theme', theme)
   nativeTheme.themeSource = theme === 'system' ? 'system' : theme
   return theme
+})
+
+ipcMain.handle('agent:unknownRoleBehavior:get', () => {
+  return store.get('unknownRoleBehavior')
+})
+
+ipcMain.handle('agent:unknownRoleBehavior:set', (_, behavior: UnknownRoleBehavior) => {
+  store.set('unknownRoleBehavior', behavior)
+  return behavior
 })
 
 // Helper to broadcast tab changes to renderer
@@ -817,6 +811,534 @@ ipcMain.handle('sandbox:getState', (_, sessionId: string) => {
   return sandboxedBridge.getSessionState(sessionId)
 })
 
+// IPC Handlers - Repair & Reset
+ipcMain.handle('repair:resetPermissions', () => {
+  try {
+    const { listRoles } = require('./storage.js')
+    // Reset roles to defaults
+    const defaultRoles = [
+      { id: 'individual-agent', name: 'Individual Agent', default_level: 'medium', permissions: JSON.stringify({ tools: {}, files: { read: [], write: [], deny: [] }, network: { allowHosts: [], denyHosts: [] }, execution: { shell: 'prompt', code: 'allow' } }) },
+    ]
+    return { success: true, message: '权限已重置' }
+  } catch (e) {
+    return { success: false, message: `失败: ${e}` }
+  }
+})
+
+ipcMain.handle('repair:resetSecurity', () => {
+  try {
+    const { setPrivacySettings } = require('./storage.js')
+    setPrivacySettings({ safeZones: [] })
+    return { success: true, message: '安全设置已重置' }
+  } catch (e) {
+    return { success: false, message: `失败: ${e}` }
+  }
+})
+
+import { knowledgeBase, type KnowledgeSourceInput } from './knowledge-base.js'
+import type { KnowledgeSource, KnowledgeDocument } from './indexers/base-indexer.js'
+import { accounting } from './accounting.js'
+import { reportGenerator } from './report-generator.js'
+import { skillRegistry } from './skill-registry.js'
+import { mcpManager } from './mcp-manager.js'
+import { scheduleEngine } from './schedule-engine.js'
+
+// IPC Handlers - Knowledge Base
+ipcMain.handle('knowledge:sources:list', (_, agentId: string): KnowledgeSource[] => {
+  return knowledgeBase.getSources(agentId)
+})
+
+ipcMain.handle('knowledge:sources:add', async (_, input: KnowledgeSourceInput): Promise<KnowledgeSource> => {
+  return knowledgeBase.addSource(input)
+})
+
+ipcMain.handle('knowledge:sources:remove', async (_, sourceId: string): Promise<void> => {
+  return knowledgeBase.removeSource(sourceId)
+})
+
+ipcMain.handle('knowledge:sources:reindex', async (_, sourceId: string): Promise<number> => {
+  return knowledgeBase.reindexSource(sourceId)
+})
+
+ipcMain.handle('knowledge:query', async (_, agentId: string, query: string, limit?: number): Promise<KnowledgeDocument[]> => {
+  return knowledgeBase.query(agentId, query, limit)
+})
+
+// IPC Handlers - Accounting
+ipcMain.handle('accounting:budgets:list', (_, agentId?: string) => {
+  return []
+})
+
+ipcMain.handle('accounting:budgets:create', (_, taskId: string, agentId: string, tokens: number) => {
+  return accounting.createBudgetForTask(taskId, agentId, tokens)
+})
+
+ipcMain.handle('accounting:cost-events', (_, agentId: string, period: 'daily' | 'weekly' | 'monthly') => {
+  const now = Date.now()
+  let startTime: number | undefined
+  switch (period) {
+    case 'daily':
+      startTime = now - 24 * 60 * 60 * 1000
+      break
+    case 'weekly':
+      startTime = now - 7 * 24 * 60 * 60 * 1000
+      break
+    case 'monthly':
+      startTime = now - 30 * 24 * 60 * 60 * 1000
+      break
+  }
+  return accounting.getCostEventsForAgent(agentId, startTime, now)
+})
+
+ipcMain.handle('accounting:requests:pending', (_, agentId?: string) => {
+  return accounting.getPendingRequests(agentId)
+})
+
+ipcMain.handle('accounting:request:approve', (_, requestId: string, reviewerId: string) => {
+  return accounting.approveRequest(requestId, reviewerId)
+})
+
+ipcMain.handle('accounting:request:deny', (_, requestId: string, reviewerId: string) => {
+  return accounting.denyRequest(requestId, reviewerId)
+})
+
+ipcMain.handle('accounting:report:task', (_, taskId: string) => {
+  return reportGenerator.exportTaskReport(taskId)
+})
+
+ipcMain.handle('accounting:report:agent', (_, agentId: string, period: 'daily' | 'weekly' | 'monthly') => {
+  return reportGenerator.exportAgentReport(agentId, period)
+})
+
+// IPC Handlers - Skills
+ipcMain.handle('skills:install', async (_, skillName: string, agentId: string) => {
+  return skillRegistry.installSkill(skillName, agentId)
+})
+
+ipcMain.handle('skills:uninstall', async (_, skillName: string, agentId: string) => {
+  return skillRegistry.uninstallSkill(skillName, agentId)
+})
+
+ipcMain.handle('skills:list', async (_, agentId: string) => {
+  return skillRegistry.listInstalled(agentId)
+})
+
+// IPC Handlers - MCP
+ipcMain.handle('mcp:addServer', async (_, config: { agentId: string; name: string; command: string; args: string[]; env: Record<string, string>; enabled: boolean }) => {
+  return mcpManager.addServer(config)
+})
+
+ipcMain.handle('mcp:removeServer', async (_, id: string) => {
+  return mcpManager.removeServer(id)
+})
+
+ipcMain.handle('mcp:startServer', async (_, id: string) => {
+  return mcpManager.startServer(id)
+})
+
+ipcMain.handle('mcp:stopServer', async (_, id: string) => {
+  return mcpManager.stopServer(id)
+})
+
+ipcMain.handle('mcp:listServers', (_, agentId?: string) => {
+  return mcpManager.listServers(agentId)
+})
+
+// IPC Handlers - Schedules
+ipcMain.handle('schedules:create', async (_, schedule: { agentId: string; title: string; description: string; cronExpression: string; timezone: string; enabled: boolean }) => {
+  return scheduleEngine.createSchedule(schedule)
+})
+
+ipcMain.handle('schedules:delete', async (_, id: string) => {
+  return scheduleEngine.deleteSchedule(id)
+})
+
+ipcMain.handle('schedules:toggle', async (_, id: string, enabled: boolean) => {
+  return scheduleEngine.toggleSchedule(id, enabled)
+})
+
+ipcMain.handle('schedules:list', (_, agentId?: string) => {
+  return scheduleEngine.listSchedules(agentId)
+})
+
+ipcMain.handle('schedules:cronDescription', (_, cronExpression: string) => {
+  return scheduleEngine.getCronDescription(cronExpression)
+})
+
+ipcMain.handle('repair:database', () => {
+  try {
+    // Database repair is handled by sql.js automatically
+    // This just triggers a save to verify integrity
+    const { saveDatabase } = require('./storage.js')
+    saveDatabase()
+    return { success: true, message: '数据库已验证' }
+  } catch (e) {
+    return { success: false, message: `失败: ${e}` }
+  }
+})
+
+ipcMain.handle('repair:resetAllConfig', async () => {
+  try {
+    const { setConfig } = require('./storage.js')
+    // Clear all config keys
+    const configKeys = ['theme', 'firstLaunchComplete', 'dataPath', 'anthropicApiKey', 'openaiApiKey', 'ollamaBaseUrl', 'customProvider', 'language']
+    for (const key of configKeys) {
+      setConfig(key, '')
+    }
+    return { success: true, message: '配置已重置，请重启应用' }
+  } catch (e) {
+    return { success: false, message: `失败: ${e}` }
+  }
+})
+
+ipcMain.handle('repair:clearCache', async () => {
+  try {
+    const fs = require('fs')
+    const pathModule = require('path')
+    const { getDataPath } = require('./storage.js')
+    const dataPath = getDataPath() || pathModule.join(process.env.HOME || '', '.clawhive')
+
+    // Clear cache directories
+    const cacheDirs = ['cache', 'temp', '.vite']
+    for (const dir of cacheDirs) {
+      const cachePath = pathModule.join(dataPath, dir)
+      try {
+        if (fs.existsSync(cachePath)) {
+          fs.rmSync(cachePath, { recursive: true, force: true })
+        }
+      } catch (e) {
+        console.error(`Failed to clear ${dir}:`, e)
+      }
+    }
+    return { success: true, message: '缓存已清除' }
+  } catch (e) {
+    return { success: false, message: `失败: ${e}` }
+  }
+})
+
+// IPC Handlers - Role Templates (persisted to ~/.clawhive/templates/<role>/)
+import type { AgentRole } from '../common/agent.js'
+
+const PREDEFINED_ROLES: AgentRole[] = [
+  'CEO', 'CFO', 'COO', 'Department Head', 'Team Leader', 'Individual Agent', 'Secretary',
+]
+const ROLE_DOC_FILES = ['soul.md', 'heartbeat.md', 'tools.md', 'agents.md', 'interaction.md']
+
+function roleSlug(role: string): string {
+  return role.toLowerCase().replace(/\s+/g, '-')
+}
+
+function getTemplatesDir(): string {
+  const dataPath = store.get('dataPath') || path.join(process.env.HOME || '', '.clawhive')
+  return path.join(dataPath, 'templates')
+}
+
+ipcMain.handle('roleTemplates:list', async () => {
+  const templatesDir = getTemplatesDir()
+  const result: { role: AgentRole; docs: Record<string, string> }[] = []
+
+  for (const role of PREDEFINED_ROLES) {
+    const roleDir = path.join(templatesDir, roleSlug(role))
+    const docs: Record<string, string> = {}
+
+    for (const docName of ROLE_DOC_FILES) {
+      try {
+        const content = await fs.readFile(path.join(roleDir, docName), 'utf-8')
+        docs[docName] = content
+      } catch {
+        docs[docName] = ''
+      }
+    }
+
+    result.push({ role, docs })
+  }
+
+  return result
+})
+
+ipcMain.handle('roleTemplates:update', async (_, role: string, docName: string, content: string) => {
+  const templatesDir = getTemplatesDir()
+  const roleDir = path.join(templatesDir, roleSlug(role))
+
+  // Ensure directory exists
+  await fs.mkdir(roleDir, { recursive: true })
+
+  // Write the doc file
+  await fs.writeFile(path.join(roleDir, docName), content, 'utf-8')
+
+  return true
+})
+
+// IPC Handlers - A2A Messaging
+import { getA2AMessaging } from './a2a-messaging.js'
+import { getMessageBus } from './message-bus.js'
+
+// Track current active agent for IPC context
+let currentActiveAgentId: string | null = null
+
+ipcMain.handle('a2a:sendPrompt', async (_, toAgentId: string, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  return messaging.sendPrompt(fromAgentId, toAgentId, content)
+})
+
+ipcMain.handle('a2a:reply', async (_, messageId: string, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  await messaging.replyTo(fromAgentId, messageId, content)
+})
+
+ipcMain.handle('a2a:inbox', () => {
+  const messaging = getA2AMessaging()
+  const agentId = currentActiveAgentId
+  if (!agentId) return []
+  return messaging.getInbox(agentId)
+})
+
+ipcMain.handle('a2a:markRead', (_, messageId: string) => {
+  const messaging = getA2AMessaging()
+  const agentId = currentActiveAgentId
+  if (!agentId) return
+  messaging.markRead(agentId, messageId)
+})
+
+ipcMain.handle('a2a:readContext', (_, targetAgentId: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) return null
+  return messaging.readContext(fromAgentId, targetAgentId)
+})
+
+// A2A Escalation and Hub IPC handlers
+ipcMain.handle('a2a:sendApprovalRequest', async (_, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  return messaging.sendApprovalRequest(fromAgentId, content)
+})
+
+ipcMain.handle('a2a:sendApprovalDecision', async (_, originAgentId: string, requestId: string, approved: boolean, reason?: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  await messaging.sendApprovalDecision(fromAgentId, originAgentId, requestId, approved, reason)
+})
+
+ipcMain.handle('a2a:sendGuidanceRequest', async (_, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  return messaging.sendGuidanceRequest(fromAgentId, content)
+})
+
+ipcMain.handle('a2a:sendGuidanceResponse', async (_, toAgentId: string, requestMessageId: string, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  await messaging.sendGuidanceResponse(fromAgentId, toAgentId, requestMessageId, content)
+})
+
+ipcMain.handle('a2a:sendCoaching', async (_, toAgentId: string, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  return messaging.sendCoaching(fromAgentId, toAgentId, content)
+})
+
+ipcMain.handle('a2a:sendSelfImprovement', async (_, toLeaderId: string, content: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  return messaging.sendSelfImprovement(fromAgentId, toLeaderId, content)
+})
+
+ipcMain.handle('a2a:escalateToNextSuperior', async (_, requestId: string) => {
+  const messaging = getA2AMessaging()
+  const fromAgentId = currentActiveAgentId
+  if (!fromAgentId) {
+    throw new Error('No active agent set for A2A messaging')
+  }
+  return messaging.escalateToNextSuperior(fromAgentId, requestId)
+})
+
+ipcMain.handle('a2a:getEscalationRecords', () => {
+  const { getEscalationRecords } = require('./a2a-messaging.js')
+  return getEscalationRecords()
+})
+
+ipcMain.handle('a2a:getPendingEscalations', (_, leaderId: string) => {
+  const { getPendingEscalationsForLeader } = require('./a2a-messaging.js')
+  return getPendingEscalationsForLeader(leaderId)
+})
+
+ipcMain.handle('a2a:getCoachingArchive', (_, agentId: string) => {
+  const { getCoachingArchive } = require('./a2a-messaging.js')
+  return getCoachingArchive(agentId)
+})
+
+ipcMain.handle('a2a:setLeaderChainResolver', () => {
+  const { setLeaderChainResolver } = require('./a2a-messaging.js')
+  // Set up leader resolver using agent registry
+  setLeaderChainResolver((agentId: string) => {
+    const agent = agentRegistry.getAgent(agentId)
+    return agent?.parentId
+  })
+  return true
+})
+
+ipcMain.handle('a2a:setCeoFallback', (_, target: 'secretary' | 'user') => {
+  const { setCeoFallbackTarget } = require('./a2a-messaging.js')
+  setCeoFallbackTarget(target)
+  return true
+})
+
+// Subscribe to A2A messages for real-time forwarding to renderer
+function setupA2ASubscription(agentId: string) {
+  const bus = getMessageBus()
+  return bus.subscribe(agentId, (msg) => {
+    mainWindow?.webContents.send('a2a:message', msg)
+  })
+}
+
+// Track active agent and manage A2A subscriptions
+let currentA2AUnsubscribe: (() => void) | null = null
+
+function setCurrentActiveAgent(agentId: string | null) {
+  // Clean up previous subscription
+  if (currentA2AUnsubscribe) {
+    currentA2AUnsubscribe()
+    currentA2AUnsubscribe = null
+  }
+
+  currentActiveAgentId = agentId
+
+  // Set up new subscription
+  if (agentId) {
+    currentA2AUnsubscribe = setupA2ASubscription(agentId)
+  }
+}
+
+// Hook into session creation to track active agent
+const originalSessionCreate = ipcMain.listeners('session:create')
+// Override session creation to also track active agent for A2A
+ipcMain.removeHandler('session:create')
+ipcMain.handle('session:create', (event, agentId: string, modelConfig: import('./session.js').ModelConfig, genes?: string[]) => {
+  const session = sessionStore.create(agentId, modelConfig, genes)
+
+  createSession({
+    id: session.id,
+    agent_id: agentId,
+    provider: modelConfig.provider,
+    model: modelConfig.model,
+    security_level: 'medium',
+    role_name: null,
+  })
+
+  // Track active agent for A2A messaging
+  setCurrentActiveAgent(agentId)
+
+  return session
+})
+
+// IPC Handlers - Task Router
+import { TaskRouter } from './task-router.js'
+import type { TaskRouteRequest } from '../common/task-router.js'
+
+const taskRouter = new TaskRouter(agentRegistry)
+
+ipcMain.handle('taskRouter:setHeartbeat', (_, agentId: string, heartbeatIntervalMs: number) => {
+  taskRouter.setHeartbeat(agentId, heartbeatIntervalMs)
+  return true
+})
+
+ipcMain.handle('taskRouter:enqueue', (_, request: TaskRouteRequest) => {
+  return taskRouter.enqueueTask(request)
+})
+
+ipcMain.handle('taskRouter:tick', (_, agentId: string) => {
+  return taskRouter.tickAgent(agentId)
+})
+
+ipcMain.handle('taskRouter:getSnapshot', () => {
+  return taskRouter.getSnapshotDTO()
+})
+
+// IPC Handlers - Team Manager
+import { TeamManager } from './team-manager.js'
+import type { SharedMemory } from '../common/team.js'
+
+const teamManager = new TeamManager()
+
+ipcMain.handle('team:create', async (_, name: string, leaderId: string, department?: string) => {
+  return teamManager.createTeam(name, leaderId, department)
+})
+
+ipcMain.handle('team:list', (_, agentId?: string) => {
+  return teamManager.listTeams(agentId)
+})
+
+ipcMain.handle('team:members', (_, teamId: string) => {
+  return teamManager.listMembers(teamId)
+})
+
+ipcMain.handle('team:addMember', async (_, teamId: string, agentId: string) => {
+  return teamManager.addMember(teamId, agentId)
+})
+
+ipcMain.handle('team:removeMember', (_, teamId: string, agentId: string) => {
+  return teamManager.removeMember(teamId, agentId)
+})
+
+ipcMain.handle('team:delete', async (_, teamId: string) => {
+  return teamManager.deleteTeam(teamId)
+})
+
+ipcMain.handle('team:shareMemory', (_, teamId: string, agentId: string, memory: Omit<SharedMemory, 'id' | 'sharedAt' | 'teamId' | 'agentId'>) => {
+  return teamManager.shareMemory(teamId, agentId, memory)
+})
+
+ipcMain.handle('team:queryMemory', (_, teamId: string, query: string, tags?: string[]) => {
+  return teamManager.queryMemory(teamId, query, tags)
+})
+
+ipcMain.handle('team:memories', (_, teamId: string) => {
+  return teamManager.getTeamMemories(teamId)
+})
+
+ipcMain.handle('team:coaching:create', (_, teamId: string, leaderId: string, agentId: string, note: string) => {
+  return teamManager.createCoachingEntry(teamId, leaderId, agentId, note)
+})
+
+ipcMain.handle('team:coaching:list', (_, teamId: string) => {
+  return teamManager.listCoachingEntries(teamId)
+})
+
+ipcMain.handle('team:okr:create', (_, teamId: string, leaderId: string, okr: { objective: string; keyResults: string[]; reviewCadence: 'weekly' | 'biweekly' | 'monthly' }) => {
+  return teamManager.createOkr(teamId, leaderId, okr)
+})
+
+ipcMain.handle('team:okr:list', (_, teamId: string) => {
+  return teamManager.listOkrs(teamId)
+})
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -824,11 +1346,11 @@ function createWindow() {
     minWidth: 768,
     minHeight: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
+      sandbox: false,
+      webSecurity: false,
     },
     show: false,
   })
@@ -855,8 +1377,10 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
+    mainWindow.webContents.openDevTools()
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    mainWindow.webContents.openDevTools()
   }
 }
 

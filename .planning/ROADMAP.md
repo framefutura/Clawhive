@@ -266,10 +266,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 4. First-launch wizard guides agent creation and config import
 5. DMG distribution works with code signing and notarization
 
-**Plans:** 3 plans
+**Plans:** 4 plans
 - [ ] 06-01: Internationalization
 - [ ] 06-02: Distribution
 - [ ] 06-03: Polish
+- [ ] 06-04: Custom LLM Providers
 
 ---
 
@@ -288,7 +289,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 | 4.06. A2A Escalation & Hub | v1.1 | 1/1 | Complete (2026-04-05) |
 | 4.07. A2A Security & Coaching | v1.1 | 1/1 | Complete (2026-04-05) |
 | 5. Advanced Features | v1.0 | 0/4 | Planned |
-| 6. Polish & Distribution | v1.0 | 0/3 | Planned |
+| 6. Polish & Distribution | v1.0 | 0/4 | Planned |
 
 ---
 

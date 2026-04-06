@@ -28,12 +28,13 @@ Phase 4.01: 0% (0/? plans — planned)
 Phase 4.02: 80% (4/5 plans — 04-02-04 complete)
 Phase 4.03: 100% (1/1 plans — 04-03 complete)
 Phase 4.04: 100% (1/1 plans — 04-04 complete)
-Phase 4.05: 0% (0/? plans — planned)
+Phase 4.05: 100% (1/1 plans — 04-05 complete)
 Phase 4.06: 100% (1/1 plans — 04-06 complete)
 Phase 4.07: 100% (1/1 plans — 04-07 complete)
+Phase 4 GAPS: 100% (2/2 plans complete)
 Phase 5: 0% (0/4 plans — planned)
 Phase 6: 0% (0/3 plans — planned)
-Overall: 25/36 plans complete
+Overall: 28/36 plans complete
 
 ## Milestones
 
@@ -67,6 +68,11 @@ Overall: 25/36 plans complete
 | **v1.1 Multi-Agent milestone in progress** | **in progress** | **2026-03-31** |
 | Plan 04-02-04 complete | done | 2026-04-03 |
 | Plan 04-03 complete | done | 2026-04-03 |
+| Plan 04-04 complete | done | 2026-04-03 |
+| Plan 04-06 complete | done | 2026-04-04 |
+| Plan 04-07 complete | done | 2026-04-04 |
+| Plan 04-11 complete | done | 2026-04-04 |
+| Plan 04-GAPS-preload-fix complete | done | 2026-04-05 |
 
 ## Phase 4 Structure (v1.1 — 38 Requirements, 7 Plans)
 

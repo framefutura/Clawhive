@@ -1,7 +1,6 @@
 appId: ai.clawhive.desktop
 productName: ClawHive
 copyright: Copyright 2026 ClawHive
-category: public.app-category.productivity
 
 directories:
   output: release
@@ -9,7 +8,6 @@ directories:
 
 files:
   - dist/**/*
-  - "!node_modules/**/*"
 
 mac:
   target:
@@ -21,6 +19,8 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  notarize:
+    teamId: ${APPLE_TEAM_ID}
 
 dmg:
   contents:
@@ -36,6 +36,8 @@ dmg:
     y: 100
     width: 540
     height: 380
+  iconSize: 100
+  title: "${productName} ${version}"
 
 # Additional files to include (for sql.js WASM in later plans)
 extraResources:

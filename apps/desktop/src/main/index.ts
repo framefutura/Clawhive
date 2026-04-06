@@ -51,6 +51,7 @@ import type { UnknownRoleBehavior } from './agent-mapper.js'
 import type { TabRecord, TabType } from '../common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from '../common/workspace.js'
 import Store from 'electron-store'
+import { initUpdater } from './updater.js'
 
 const isDev = process.env.NODE_ENV === 'development'
 let mainWindow: Electron.BrowserWindow | null = null
@@ -1388,6 +1389,11 @@ function createWindow() {
 app.on('ready', async () => {
   await initStorage()
   createWindow()
+
+  // Initialize auto-updater in production only
+  if (!isDev && mainWindow) {
+    initUpdater(mainWindow)
+  }
 })
 
 app.on('window-all-closed', async () => {

@@ -405,7 +405,8 @@ export default function App() {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
-  useClipboardPaste(handleFileUpload)
+  // useClipboardPaste - disabled due to React context errors in production build
+  // useClipboardPaste(handleFileUpload)
 
   // Auto-connect to gateway on mount
   useEffect(() => {

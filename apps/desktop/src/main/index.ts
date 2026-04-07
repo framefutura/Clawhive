@@ -22,6 +22,7 @@ import {
   getConfig as getDbConfig,
   setConfig as setDbConfig,
   getDataPath,
+  isDbInitialized,
   getPrivacySettings,
   setPrivacySettings,
   addSafeZone as addDbSafeZone,
@@ -52,6 +53,7 @@ import type { TabRecord, TabType } from '../common/tab.js'
 import type { WorkspaceRecord, WorkspaceUpdate } from '../common/workspace.js'
 import Store from 'electron-store'
 import { initUpdater } from './updater.js'
+import { registerPermissionHandlers, initPermissions } from './permissions.js'
 
 const isDev = process.env.NODE_ENV === 'development'
 let mainWindow: Electron.BrowserWindow | null = null
@@ -66,12 +68,18 @@ const store = new Store<{
   theme: 'dark' | 'light' | 'system'
   firstLaunchComplete: boolean
   unknownRoleBehavior: UnknownRoleBehavior
+  onboardingVersion: string
+  performanceMode: boolean
+  language: string
 }>({
   defaults: {
     dataPath: null,
     theme: 'system',
     firstLaunchComplete: false,
     unknownRoleBehavior: 'persistent',
+    onboardingVersion: '',
+    performanceMode: false,
+    language: 'en',
   }
 })
 
@@ -83,10 +91,23 @@ async function initStorage() {
     return false
   }
 
-  await loadDatabase({ dataPath })
+  try {
+    await loadDatabase({ dataPath })
+  } catch (error) {
+    console.error('[initStorage] Failed to initialize database:', error)
+    // Continue without database - handlers will check isDbInitialized()
+  }
 
-  // Set workspace data path
-  workspaceDb.setDataPath(dataPath)
+  // Set workspace data path (even if db failed, workspaces can work without db)
+  if (dataPath) {
+    workspaceDb.setDataPath(dataPath)
+  }
+
+  // Only continue if database was actually initialized
+  if (!isDbInitialized()) {
+    console.error('[initStorage] Database initialization failed, continuing without database')
+    return false
+  }
 
   // Load sessions from database into memory
   const dbSessions = getSessions()
@@ -151,6 +172,92 @@ ipcMain.handle('firstLaunch:check', () => {
 ipcMain.handle('firstLaunch:complete', () => {
   store.set('firstLaunchComplete', true)
   return true
+})
+
+// IPC Handlers - Config Import
+ipcMain.handle('config:detect', async () => {
+  const homeDir = require('os').homedir()
+  const configs: { type: 'openclaw' | 'claude-code'; path: string; name: string }[] = []
+  
+  try {
+    // Check for OpenClaw config
+    const openclawPath = path.join(homeDir, '.openclaw', 'config.json')
+    const openclawStat = await fs.stat(openclawPath).catch(() => null)
+    if (openclawStat) {
+      configs.push({ type: 'openclaw', path: openclawPath, name: 'OpenClaw' })
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  
+  try {
+    // Check for Claude Code settings
+    const claudeCodePath = path.join(homeDir, '.claude', 'settings.json')
+    const claudeCodeStat = await fs.stat(claudeCodePath).catch(() => null)
+    if (claudeCodeStat) {
+      configs.push({ type: 'claude-code', path: claudeCodePath, name: 'Claude Code' })
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  
+  return configs
+})
+
+ipcMain.handle('config:import', async (_, importPath: string, type: string) => {
+  try {
+    const content = await fs.readFile(importPath, 'utf-8')
+    const config = JSON.parse(content)
+    
+    // Extract relevant fields based on type
+    if (type === 'openclaw') {
+      return {
+        name: config.name ?? 'Imported Agent',
+        role: config.role ?? 'General Assistant',
+        provider: config.provider ?? 'anthropic',
+        model: config.model ?? 'claude-sonnet-4-20250514',
+        apiKey: config.apiKey,
+        genes: config.genes ?? ['code-write', 'data-analysis'],
+      }
+    } else if (type === 'claude-code') {
+      // Extract from Claude Code settings
+      return {
+        name: config.agentName ?? 'Claude Agent',
+        role: 'General Assistant',
+        provider: config.provider ?? 'anthropic',
+        model: config.model ?? 'claude-sonnet-4-20250514',
+        apiKey: config.apiKey,
+        genes: ['code-write', 'data-analysis'],
+      }
+    }
+    
+    return {}
+  } catch (e) {
+    console.error('Failed to import config:', e)
+    return {}
+  }
+})
+
+// IPC Handlers - Permissions (macOS TCC)
+ipcMain.handle('permissions:check', async () => {
+  const { checkAllPermissions } = await import('./permissions.js')
+  return checkAllPermissions()
+})
+
+ipcMain.handle('permissions:requestMicrophone', async () => {
+  const { checkMicrophoneAccess } = await import('./permissions.js')
+  return checkMicrophoneAccess()
+})
+
+ipcMain.handle('permissions:checkScreenCapture', async () => {
+  const { checkScreenCaptureAccess } = await import('./permissions.js')
+  const hasAccess = await checkScreenCaptureAccess()
+  return {
+    hasAccess,
+    guidance: hasAccess 
+      ? null 
+      : 'Screen capture access is required for browser screenshots. Please grant permission in System Settings → Privacy & Security → Screen Recording.'
+  }
 })
 
 // IPC Handlers - Gateway
@@ -334,6 +441,10 @@ ipcMain.handle('agent:create', (_, agent: {
   team?: string
   defaultSecurityLevel?: string
 }) => {
+  if (!isDbInitialized()) {
+    console.error('[agent:create] Database not initialized')
+    return null
+  }
   const toolRegistry = getToolRegistry()
   const permissions = agent.tools && agent.tools.length > 0
     ? agent.tools
@@ -384,23 +495,43 @@ ipcMain.handle('agent:create', (_, agent: {
 })
 
 ipcMain.handle('agent:list', () => {
+  if (!isDbInitialized()) {
+    console.error('[agent:list] Database not initialized')
+    return []
+  }
   return agentRegistry.listAgents()
 })
 
 ipcMain.handle('agent:update', (_, id: string, updates: Record<string, unknown>) => {
+  if (!isDbInitialized()) {
+    console.error('[agent:update] Database not initialized')
+    return null
+  }
   return agentRegistry.updateAgent(id, updates as never)
 })
 
 ipcMain.handle('agent:delete', (_, id: string) => {
+  if (!isDbInitialized()) {
+    console.error('[agent:delete] Database not initialized')
+    return { success: false, id, error: 'Database not initialized' }
+  }
   agentRegistry.deleteAgent(id)
   return { success: true, id }
 })
 
 ipcMain.handle('agent:hierarchy', () => {
+  if (!isDbInitialized()) {
+    console.error('[agent:hierarchy] Database not initialized')
+    return []
+  }
   return agentRegistry.getHierarchy()
 })
 
 ipcMain.handle('agent:genes', (_, agentId: string) => {
+  if (!isDbInitialized()) {
+    console.error('[agent:genes] Database not initialized')
+    return []
+  }
   return getAgentGenes(agentId)
 })
 
@@ -476,6 +607,9 @@ ipcMain.handle('config:get', () => {
     theme: store.get('theme'),
     firstLaunchComplete: store.get('firstLaunchComplete'),
     unknownRoleBehavior: store.get('unknownRoleBehavior'),
+    onboardingVersion: store.get('onboardingVersion'),
+    performanceMode: store.get('performanceMode'),
+    language: store.get('language'),
   }
 })
 
@@ -487,6 +621,15 @@ ipcMain.handle('config:set', (_, config: Record<string, unknown>) => {
   }
   if (config.unknownRoleBehavior) {
     store.set('unknownRoleBehavior', config.unknownRoleBehavior as UnknownRoleBehavior)
+  }
+  if (config.onboardingVersion) {
+    store.set('onboardingVersion', config.onboardingVersion as string)
+  }
+  if (config.performanceMode !== undefined) {
+    store.set('performanceMode', config.performanceMode as boolean)
+  }
+  if (config.language) {
+    store.set('language', config.language as string)
   }
 
   return true
@@ -520,10 +663,18 @@ function broadcastTabsChanged() {
 
 // IPC Handlers - Tabs
 ipcMain.handle('tabs:list', (): TabRecord[] => {
+  if (!isDbInitialized()) {
+    console.error('[tabs:list] Database not initialized')
+    return []
+  }
   return tabDb.listTabs()
 })
 
-ipcMain.handle('tabs:create', (_, type: TabType, contentRef?: string, title?: string, workspaceId?: string): TabRecord => {
+ipcMain.handle('tabs:create', (_, type: TabType, contentRef?: string, title?: string, workspaceId?: string): TabRecord | null => {
+  if (!isDbInitialized()) {
+    console.error('[tabs:create] Database not initialized')
+    return null
+  }
   const tab = tabDb.createTab({
     title: title || autoNameTab(type),
     type,
@@ -536,23 +687,39 @@ ipcMain.handle('tabs:create', (_, type: TabType, contentRef?: string, title?: st
 })
 
 ipcMain.handle('tabs:close', (_, id: string): void => {
+  if (!isDbInitialized()) {
+    console.error('[tabs:close] Database not initialized')
+    return
+  }
   tabDb.closeTab(id)
   broadcastTabsChanged()
 })
 
 ipcMain.handle('tabs:rename', (_, id: string, newTitle: string): TabRecord | null => {
+  if (!isDbInitialized()) {
+    console.error('[tabs:rename] Database not initialized')
+    return null
+  }
   const updated = tabDb.updateTab(id, { title: newTitle })
   broadcastTabsChanged()
   return updated
 })
 
 ipcMain.handle('tabs:update', (_, id: string, updates: Partial<TabRecord>): TabRecord | null => {
+  if (!isDbInitialized()) {
+    console.error('[tabs:update] Database not initialized')
+    return null
+  }
   const updated = tabDb.updateTab(id, updates)
   broadcastTabsChanged()
   return updated
 })
 
 ipcMain.handle('tabs:reorder', (_, orderedIds: string[]): void => {
+  if (!isDbInitialized()) {
+    console.error('[tabs:reorder] Database not initialized')
+    return
+  }
   tabDb.reorderTabs(orderedIds)
   broadcastTabsChanged()
 })
@@ -562,6 +729,10 @@ ipcMain.handle('tabs:autoName', (_, type: TabType, context: Record<string, unkno
 })
 
 ipcMain.handle('tabs:updateTitle', (_, id: string, title: string): TabRecord | null => {
+  if (!isDbInitialized()) {
+    console.error('[tabs:updateTitle] Database not initialized')
+    return null
+  }
   const updated = tabDb.updateTab(id, { title })
   broadcastTabsChanged()
   return updated
@@ -575,27 +746,47 @@ function broadcastWorkspacesChanged() {
 
 // IPC Handlers - Workspaces
 ipcMain.handle('workspaces:list', (): WorkspaceRecord[] => {
+  if (!isDbInitialized()) {
+    console.error('[workspaces:list] Database not initialized')
+    return []
+  }
   return workspaceDb.list()
 })
 
-ipcMain.handle('workspaces:create', async (_, name?: string): Promise<WorkspaceRecord> => {
+ipcMain.handle('workspaces:create', async (_, name?: string): Promise<WorkspaceRecord | null> => {
+  if (!isDbInitialized()) {
+    console.error('[workspaces:create] Database not initialized')
+    return null
+  }
   const workspace = await workspaceDb.create(name)
   broadcastWorkspacesChanged()
   return workspace
 })
 
 ipcMain.handle('workspaces:update', (_, id: string, updates: WorkspaceUpdate): WorkspaceRecord | null => {
+  if (!isDbInitialized()) {
+    console.error('[workspaces:update] Database not initialized')
+    return null
+  }
   const updated = workspaceDb.update(id, updates)
   broadcastWorkspacesChanged()
   return updated
 })
 
 ipcMain.handle('workspaces:delete', async (_, id: string): Promise<void> => {
+  if (!isDbInitialized()) {
+    console.error('[workspaces:delete] Database not initialized')
+    return
+  }
   await workspaceDb.delete(id)
   broadcastWorkspacesChanged()
 })
 
 ipcMain.handle('workspaces:get', (_, id: string): WorkspaceRecord | null => {
+  if (!isDbInitialized()) {
+    console.error('[workspaces:get] Database not initialized')
+    return null
+  }
   return workspaceDb.get(id)
 })
 
@@ -843,6 +1034,61 @@ import { reportGenerator } from './report-generator.js'
 import { skillRegistry } from './skill-registry.js'
 import { mcpManager } from './mcp-manager.js'
 import { scheduleEngine } from './schedule-engine.js'
+import { getPlanEngine, type PlanEventType } from './plan-engine.js'
+import type { PlanStep } from '../common/plan.js'
+
+// IPC Handlers - Plan Engine
+ipcMain.handle('plan:create', (_, taskId: string, agentId: string, steps: { description: string; tool?: string; checkpoint?: boolean }[]) => {
+  const engine = getPlanEngine()
+  // Add index to each step, ensure checkpoint is boolean
+  const indexedSteps: PlanStep[] = steps.map((step, i) => ({
+    index: i,
+    description: step.description,
+    tool: step.tool ?? undefined,
+    checkpoint: step.checkpoint === true,
+  }))
+  return engine.createPlan(taskId, agentId, indexedSteps)
+})
+
+ipcMain.handle('plan:submit', (_, planId: string) => {
+  const engine = getPlanEngine()
+  return engine.submitPlan(planId)
+})
+
+ipcMain.handle('plan:approve', (_, planId: string) => {
+  const engine = getPlanEngine()
+  return engine.approvePlan(planId)
+})
+
+ipcMain.handle('plan:reject', (_, planId: string, reason: string) => {
+  const engine = getPlanEngine()
+  return engine.rejectPlan(planId, reason)
+})
+
+ipcMain.handle('plan:pause', (_, planId: string) => {
+  const engine = getPlanEngine()
+  return engine.pausePlan(planId)
+})
+
+ipcMain.handle('plan:resume', (_, planId: string) => {
+  const engine = getPlanEngine()
+  return engine.resumePlan(planId)
+})
+
+ipcMain.handle('plan:get', (_, planId: string) => {
+  const engine = getPlanEngine()
+  return engine.getPlan(planId)
+})
+
+ipcMain.handle('plan:byTask', (_, taskId: string) => {
+  const engine = getPlanEngine()
+  return engine.getPlansByTask(taskId)
+})
+
+ipcMain.handle('plan:executions', (_, planId: string) => {
+  const engine = getPlanEngine()
+  return engine.getExecutions(planId)
+})
 
 // IPC Handlers - Knowledge Base
 ipcMain.handle('knowledge:sources:list', (_, agentId: string): KnowledgeSource[] => {
@@ -1389,6 +1635,14 @@ function createWindow() {
 app.on('ready', async () => {
   await initStorage()
   createWindow()
+
+  // Initialize permissions check after window is created
+  if (mainWindow) {
+    // Use setTimeout to ensure window is ready
+    setTimeout(() => {
+      initPermissions(mainWindow).catch(console.error)
+    }, 1000)
+  }
 
   // Initialize auto-updater in production only
   if (!isDev && mainWindow) {

@@ -8,9 +8,19 @@ import { ChatView } from './components/ChatView'
 import { Settings } from './components/Settings'
 import { SecurityPanel } from './components/SecurityPanel'
 import { FirstLaunchWizard } from './components/FirstLaunchWizard'
+import { OnboardingFlow } from './components/OnboardingFlow'
 import { FileManager } from './components/FileManager'
 import { BrowserToolbar } from './components/BrowserToolbar'
 import { FileUpload, useClipboardPaste } from './components/FileUpload'
+import { SensitiveAuthDialog } from './components/SensitiveAuthDialog'
+import { RepairDialog } from './components/RepairDialog'
+import { AgentWizard } from './components/AgentWizard'
+import { AgentDetailPanel } from './components/AgentDetailPanel'
+import { TaskRouterPanel } from './components/TaskRouterPanel'
+import { SwarmView } from './components/SwarmView'
+import { TeamWorkspace } from './components/TeamWorkspace'
+import { OrgTree, type TreeNode } from './components/OrgTree'
+import { HierarchyViewSwitcher, type HierarchyViewMode } from './components/hierarchy/HierarchyViewSwitcher'
 import { useChatStore } from './stores/chatStore'
 import { useTabStore } from './stores/tabStore'
 import { useWorkspaceStore } from './stores/workspaceStore'
@@ -19,6 +29,9 @@ import { useGateway } from './hooks/useGateway'
 import type { Provider } from './components/ModelPicker'
 import type { GeneCategory } from './types'
 import type { TabType } from '../common/tab'
+import type { AgentRecord } from '../common/agent'
+import type { A2AMessage } from '../common/a2a'
+import type { TeamRecord, SharedMemory, CoachingEntry, TeamOkr } from '../common/team'
 import type { SecurityLevel, PermissionMatrix } from '../common/security'
 import type { ApprovalRequest } from '../main/security-manager'
 import './styles/shadcn-variables.css'
@@ -78,29 +91,34 @@ export default function App() {
   const [isFirstLaunch, setIsFirstLaunch] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  const [agents, setAgents] = useState([{
-    id: 'default',
-    name: 'ClawHive Agent',
-    role: 'Individual Agent',
-    status: 'idle' as const,
-    geneCount: 3,
-  }])
+  const [agents, setAgents] = useState<AgentRecord[]>([])
   const [roles, setRoles] = useState<{ id: string; name: string; default_level: 'high' | 'medium' | 'low'; permissions: string }[]>([])
-  const [activeAgentId, setActiveAgentId] = useState<string>('default')
+  const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
+  const [hierarchyViewMode, setHierarchyViewMode] = useState<'hierarchy' | 'org-chart' | 'teams'>('hierarchy')
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
+  const [rightPanelPinned, setRightPanelPinned] = useState(false)
+  const [rightPanelSubjectId, setRightPanelSubjectId] = useState<string | null>(null)
   const [storagePath, setStoragePath] = useState('~/.clawhive')
 
   // Model selection state
   const [selectedProvider, setSelectedProvider] = useState<Provider>('anthropic')
   const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514')
+  const [customProviderConfig, setCustomProviderConfig] = useState<{ baseURL: string; apiKey?: string } | null>(null)
 
   // UI state
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [repairDialogOpen, setRepairDialogOpen] = useState(false)
   const [securityPanelOpen, setSecurityPanelOpen] = useState(false)
+  const [agentWizardOpen, setAgentWizardOpen] = useState(false)
+  const [taskRouterOpen, setTaskRouterOpen] = useState(false)
   const [securityLevel, setSecurityLevel] = useState<SecurityLevel>('medium')
   const [parsedPermissions, setParsedPermissions] = useState<PermissionMatrix>({
     tools: {}, files: { read: [], write: [], deny: [] }, network: { allowHosts: [], denyHosts: [] }, execution: { shell: 'prompt', code: 'prompt' }
   })
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const [a2aMessages, setA2AMessages] = useState<A2AMessage[]>([])
+  const [teamViewOpen, setTeamViewOpen] = useState(false)
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
 
   // Approval dialog state
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null)
@@ -129,6 +147,11 @@ export default function App() {
         } else {
           setStoragePath(config.dataPath)
         }
+
+        // Load custom provider config if available
+        if (config.customProvider) {
+          setCustomProviderConfig(config.customProvider)
+        }
       } catch {
         // If config:get not available yet, treat as first launch
         setIsFirstLaunch(true)
@@ -137,6 +160,20 @@ export default function App() {
       setIsLoading(false)
     }
     checkFirstLaunch()
+  }, [])
+
+  const loadAgents = useCallback(async () => {
+    try {
+      const [loadedAgents, hierarchy] = await Promise.all([
+        window.clawhive.getAgents(),
+        window.clawhive.getHierarchy(),
+      ])
+      setAgents(loadedAgents)
+      return loadedAgents
+    } catch (err) {
+      console.error('Failed to load agents:', err)
+      return [] as AgentRecord[]
+    }
   }, [])
 
   // Auto-create main workspace on first launch completion
@@ -176,19 +213,15 @@ export default function App() {
     // Mark first launch complete
     await window.clawhive.setConfig({ firstLaunchComplete: true })
 
-    // Update UI
-    setAgents([{
-      id: agent.id,
-      name: config.name,
-      role: config.role,
-      status: 'idle',
-      geneCount: config.genes.length,
-    }])
     setSelectedProvider(config.provider as Provider)
     setSelectedModel(config.model)
+    setActiveAgentId(agent.id)
+    setSelectedSubjectId(agent.id)
+    setRightPanelSubjectId(agent.id)
+    await loadAgents()
 
     setIsFirstLaunch(false)
-  }, [createTab, createWorkspace])
+  }, [createTab, createWorkspace, loadAgents])
 
   // Ensure at least one workspace tab exists on startup
   useEffect(() => {
@@ -226,18 +259,37 @@ export default function App() {
     }
   }, [activeTab?.workspaceId, setActiveWorkspace])
 
-  // Load roles from database on startup
+  // Load agents from registry
   useEffect(() => {
-    const loadRoles = async () => {
-      try {
-        const roles = await window.clawhive.getRoles()
-        setRoles(roles)
-      } catch (err) {
-        console.error('Failed to load roles:', err)
+    loadAgents()
+  }, [loadAgents])
+
+  useEffect(() => {
+    if (agents.length === 0) {
+      setActiveAgentId(null)
+      setSelectedSubjectId(null)
+      if (!rightPanelPinned) {
+        setRightPanelSubjectId(null)
       }
+      return
     }
-    loadRoles()
-  }, [])
+
+    const selectedExists = selectedSubjectId ? agents.some(agent => agent.id === selectedSubjectId) : false
+    const nextSelectedId = selectedExists ? selectedSubjectId : activeAgentId ?? agents[0].id
+
+    if (nextSelectedId !== selectedSubjectId) {
+      setSelectedSubjectId(nextSelectedId)
+    }
+
+    const activeExists = activeAgentId ? agents.some(agent => agent.id === activeAgentId) : false
+    if (!activeExists || activeAgentId === null) {
+      setActiveAgentId(nextSelectedId)
+    }
+
+    if (!rightPanelPinned) {
+      setRightPanelSubjectId(nextSelectedId)
+    }
+  }, [agents, activeAgentId, selectedSubjectId, rightPanelPinned])
 
   // Sync security level and permissions from session and role
   useEffect(() => {
@@ -291,7 +343,42 @@ export default function App() {
     }
   }
 
-  // Subscribe to approval requests
+  useEffect(() => {
+    if (!activeAgentId) {
+      setA2AMessages([])
+      return
+    }
+
+    let mounted = true
+
+    const loadInbox = async () => {
+      try {
+        const inbox = await window.clawhive.a2aGetInbox()
+        if (mounted) {
+          setA2AMessages(inbox)
+        }
+      } catch (err) {
+        console.error('Failed to load A2A inbox:', err)
+      }
+    }
+
+    loadInbox()
+
+    const unsubscribe = window.clawhive.onA2AMessage((message) => {
+      setA2AMessages((prev) => {
+        if (prev.some(existing => existing.id === message.id)) {
+          return prev
+        }
+        return [...prev, message]
+      })
+    })
+
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
+  }, [activeAgentId])
+
   useEffect(() => {
     const unsubscribe = window.clawhive.onSecurityApprovalRequested((request: unknown) => {
       setPendingApproval(request as ApprovalRequest)
@@ -299,12 +386,15 @@ export default function App() {
     return unsubscribe
   }, [])
 
-  // Handle approval resolution
-  const handleResolveApproval = async (approved: boolean) => {
-    if (pendingApproval) {
-      await window.clawhive.resolveSecurityApproval(pendingApproval.id, approved)
-      setPendingApproval(null)
-    }
+  // Handle approval resolution - SensitiveAuthDialog callbacks
+  const handleApproveAuth = async (requestId: string, purpose: string) => {
+    await window.clawhive.resolveSecurityApproval(requestId, true)
+    setPendingApproval(null)
+  }
+
+  const handleDenyAuth = async (requestId: string, reason: string) => {
+    await window.clawhive.resolveSecurityApproval(requestId, false)
+    setPendingApproval(null)
   }
 
   const handleFileUpload = (files: File[]) => {
@@ -441,6 +531,126 @@ export default function App() {
     await createTab('workspace', '', newWorkspace.name, newWorkspace.id)
   }, [createTab, createWorkspace])
 
+  const sidebarAgents = agents.map(agent => ({
+    id: agent.id,
+    name: agent.name,
+    role: agent.role,
+    status: agent.status,
+    geneCount: agent.genes.length,
+  }))
+
+  const buildHierarchy = useCallback((records: AgentRecord[]): TreeNode<AgentRecord>[] => {
+    const nodeMap = new Map(records.map((agent) => [agent.id, { data: agent, children: [] as TreeNode<AgentRecord>[] }]))
+    const roots: TreeNode<AgentRecord>[] = []
+
+    for (const agent of records) {
+      const node = nodeMap.get(agent.id)
+      if (!node) continue
+
+      if (agent.parentId && nodeMap.has(agent.parentId)) {
+        nodeMap.get(agent.parentId)?.children.push(node)
+      } else {
+        roots.push(node)
+      }
+    }
+
+    return roots
+  }, [])
+
+  const hierarchyNodes = buildHierarchy(agents)
+
+  const selectedAgent = selectedSubjectId
+    ? agents.find(agent => agent.id === selectedSubjectId) ?? null
+    : null
+
+  const rightPanelAgent = rightPanelSubjectId
+    ? agents.find(agent => agent.id === rightPanelSubjectId) ?? null
+    : null
+
+  const handleA2AMarkRead = useCallback(async (messageId: string) => {
+    setA2AMessages(prev => prev.map(message => (
+      message.id === messageId ? { ...message, read: true } : message
+    )))
+
+    try {
+      await window.clawhive.a2aMarkRead(messageId)
+    } catch (err) {
+      console.error('Failed to mark A2A message as read:', err)
+    }
+  }, [])
+
+  const handleA2AReply = useCallback(async (messageId: string, content: string) => {
+    try {
+      await window.clawhive.a2aReplyToMessage(messageId, content)
+      const inbox = await window.clawhive.a2aGetInbox()
+      setA2AMessages(inbox)
+    } catch (err) {
+      console.error('Failed to reply to A2A message:', err)
+    }
+  }, [])
+
+  const handleA2ASendPrompt = useCallback(async (toAgentId: string, content: string) => {
+    try {
+      await window.clawhive.a2aReadAgentContext(toAgentId)
+      await window.clawhive.a2aSendPrompt(toAgentId, content)
+      const inbox = await window.clawhive.a2aGetInbox()
+      setA2AMessages(inbox)
+    } catch (err) {
+      console.error('Failed to send A2A prompt:', err)
+    }
+  }, [])
+
+  const handleSelectAgent = (id: string) => {
+    setActiveAgentId(id)
+    setSelectedSubjectId(id)
+    if (!rightPanelPinned) {
+      setRightPanelSubjectId(id)
+    }
+  }
+
+  const handleCreateAgent = async (config: {
+    name: string
+    role: import('../common/agent').AgentRole
+    parentId?: string
+    department?: string
+    team?: string
+    provider: Provider
+    model: string
+    apiKey?: string
+    genes: string[]
+    allowedTools: string[]
+    defaultSecurityLevel: string
+  }) => {
+    const created = await window.clawhive.createAgent(config)
+    await loadAgents()
+    setActiveAgentId(created.id)
+    setSelectedSubjectId(created.id)
+    setRightPanelSubjectId(created.id)
+    setRightPanelPinned(false)
+    setAgentWizardOpen(false)
+  }
+
+  const handleReparentAgent = useCallback(async (
+    agentId: string,
+    newParentId: string | undefined,
+    _comment: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await window.clawhive.updateAgent(agentId, { parentId: newParentId })
+      await loadAgents()
+      // Keep the moved agent selected
+      setActiveAgentId(agentId)
+      setSelectedSubjectId(agentId)
+      if (!rightPanelPinned) {
+        setRightPanelSubjectId(agentId)
+      }
+      return { success: true }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { success: false, error: message }
+    }
+  }, [loadAgents, rightPanelPinned])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
@@ -470,46 +680,88 @@ export default function App() {
               anthropic: 'claude-sonnet-4-20250514',
               openai: 'gpt-4o',
               ollama: 'llama3.2',
+              custom: '', // Custom provider models are fetched dynamically
             }
             setSelectedModel(defaults[p])
           }}
           onModelChange={setSelectedModel}
           onOpenSettings={() => setSettingsOpen(true)}
+          customProviderConfig={customProviderConfig || undefined}
         />
 
         <div className="flex flex-1 overflow-hidden">
-          <Sidebar
-            agents={agents}
-            activeAgentId={activeAgentId}
-            onSelectAgent={setActiveAgentId}
-            onCreateAgent={() => {}}
-            geneCategories={SAMPLE_GENE_CATEGORIES}
-          />
-
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Tab Bar */}
-            <TabBar
-              tabs={getDisplayTabs()}
-              activeTabId={activeTabId}
-              onSelectTab={switchTab}
-              onCloseTab={closeTab}
-              onAddTab={(type?: TabType) => {
-                if (type === 'workspace') {
-                  handleAddWorkspaceTab()
-                } else if (type === 'file') {
-                  // Create a file tab with the current workspace
-                  if (activeWorkspace) {
-                    createTab('file', '', 'Files', activeWorkspace.id)
-                  }
-                } else if (type) {
-                  createTab(type)
-                } else {
-                  // Default to workspace tab if no type specified
-                  handleAddWorkspaceTab()
-                }
-              }}
-              onRenameTab={renameTab}
+          <div className="shrink-0 border-r bg-card/40 flex flex-col" data-tour="sidebar">
+            <Sidebar
+              agents={sidebarAgents}
+              activeAgentId={activeAgentId}
+              onSelectAgent={handleSelectAgent}
+              onCreateAgent={() => setAgentWizardOpen(true)}
+              geneCategories={SAMPLE_GENE_CATEGORIES}
             />
+
+            <div className="border-t p-3">
+              <HierarchyViewSwitcher
+                viewMode={hierarchyViewMode as HierarchyViewMode}
+                onChange={setHierarchyViewMode}
+              />
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto p-3 pt-0">
+              <OrgTree
+                nodes={hierarchyNodes}
+                allAgents={agents}
+                activeAgentId={activeAgentId ?? undefined}
+                viewMode={hierarchyViewMode}
+                onSelectAgent={handleSelectAgent}
+                onCreateAgent={(parentId) => {
+                  setSelectedSubjectId(parentId ?? null)
+                  setAgentWizardOpen(true)
+                }}
+                onEditAgent={handleSelectAgent}
+                onDeleteAgent={async (id) => {
+                  try {
+                    await window.clawhive.deleteAgent(id)
+                    // Clear selection state if the deleted agent was referenced
+                    if (selectedSubjectId === id) setSelectedSubjectId(null)
+                    if (rightPanelSubjectId === id) setRightPanelSubjectId(null)
+                    if (activeAgentId === id) setActiveAgentId(null)
+                    // Reload hierarchy
+                    await loadAgents()
+                  } catch (err) {
+                    console.error('Failed to delete agent:', err)
+                  }
+                }}
+                onReparentAgent={handleReparentAgent}
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0 flex flex-col">
+            {/* Tab Bar */}
+            <div data-tour="tabbar">
+              <TabBar
+                tabs={getDisplayTabs()}
+                activeTabId={activeTabId}
+                onSelectTab={switchTab}
+                onCloseTab={closeTab}
+                onAddTab={(type?: TabType) => {
+                  if (type === 'workspace') {
+                    handleAddWorkspaceTab()
+                  } else if (type === 'file') {
+                    // Create a file tab with the current workspace
+                    if (activeWorkspace) {
+                      createTab('file', '', 'Files', activeWorkspace.id)
+                    }
+                  } else if (type) {
+                    createTab(type)
+                  } else {
+                    // Default to workspace tab if no type specified
+                    handleAddWorkspaceTab()
+                  }
+                }}
+                onRenameTab={renameTab}
+              />
+            </div>
 
             {/* Content Area - switches based on active tab type */}
             {activeTab ? (
@@ -547,7 +799,17 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <ChatView messages={messages} isWorking={isWorking} onSend={sendMessage} />
+                    <ChatView
+                      messages={messages}
+                      isWorking={isWorking}
+                      onSend={sendMessage}
+                      a2aMessages={a2aMessages}
+                      agents={agents.map(agent => ({ id: agent.id, name: agent.name }))}
+                      agentId={activeAgentId ?? undefined}
+                      onA2AReply={handleA2AReply}
+                      onA2AMarkRead={handleA2AMarkRead}
+                      onA2ASendPrompt={handleA2ASendPrompt}
+                    />
                   </div>
                 </>
               ) : activeTab.type === 'workspace' ? (
@@ -647,13 +909,101 @@ export default function App() {
               </div>
             )}
           </div>
+
+          <aside className="w-80 shrink-0 border-l bg-card/30">
+            {teamViewOpen && activeTeamId ? (
+              <div className="flex flex-col h-full">
+                <SwarmView
+                  teamId={activeTeamId}
+                  teamName={activeTeamId}
+                  members={agents}
+                  agentStatuses={{}}
+                  activeTasks={{}}
+                  sharedMemories={[]}
+                  activityFeed={[]}
+                  onNavigateToAgent={handleSelectAgent}
+                />
+                <div className="border-t">
+                  <TeamWorkspace
+                    teamId={activeTeamId}
+                    teamName={activeTeamId}
+                    members={agents}
+                    sharedMemories={[]}
+                    fileTree={[]}
+                    coachingEntries={[]}
+                    okrs={[]}
+                  />
+                </div>
+              </div>
+            ) : (
+              <AgentDetailPanel
+                agent={rightPanelAgent}
+                pinned={rightPanelPinned}
+                onTogglePinned={() => {
+                  if (rightPanelPinned) {
+                    setRightPanelPinned(false)
+                    setRightPanelSubjectId(selectedSubjectId)
+                  } else {
+                    setRightPanelPinned(true)
+                    setRightPanelSubjectId(selectedSubjectId)
+                  }
+                }}
+                onSaveAgentDoc={async (agentId, docKey, content) => {
+                  const agent = agents.find(a => a.id === agentId)
+                  if (!agent) return
+                  const nextDocs = { ...agent.docs, [docKey]: content }
+                  await window.clawhive.updateAgent(agentId, { docs: nextDocs })
+                  await loadAgents()
+                }}
+              />
+            )}
+          </aside>
         </div>
+
+        <AgentWizard
+          open={agentWizardOpen}
+          onComplete={handleCreateAgent}
+          onCancel={() => setAgentWizardOpen(false)}
+          availableGenes={availableGenes}
+          existingAgents={agents.map(agent => ({
+            id: agent.id,
+            name: agent.name,
+            role: agent.role,
+          }))}
+        />
+
+        <TaskRouterPanel
+          agents={agents.map(a => ({ id: a.id, name: a.name }))}
+          activeAgentId={activeAgentId ?? undefined}
+          visible={taskRouterOpen}
+          onClose={() => setTaskRouterOpen(false)}
+        />
 
         <Settings
           open={settingsOpen && !activeTab}
-          onClose={() => setSettingsOpen(false)}
+          onClose={async () => {
+            setSettingsOpen(false)
+            // Reload custom provider config after settings change
+            const config = await window.clawhive.getConfig()
+            if (config.customProvider) {
+              setCustomProviderConfig(config.customProvider)
+            } else {
+              setCustomProviderConfig(null)
+            }
+          }}
           storagePath={storagePath}
           onStoragePathChange={setStoragePath}
+          onOpenRepair={() => {
+            setSettingsOpen(false)
+            setRepairDialogOpen(true)
+          }}
+        />
+
+        <OnboardingFlow />
+
+        <RepairDialog
+          open={repairDialogOpen}
+          onClose={() => setRepairDialogOpen(false)}
         />
 
         <SecurityPanel
@@ -665,43 +1015,14 @@ export default function App() {
           permissions={parsedPermissions}
         />
 
-        {/* Security Approval Dialog */}
-        {pendingApproval && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-background rounded-lg shadow-lg max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold mb-2">Security Approval Required</h3>
-              <p className="text-muted-foreground mb-4">{pendingApproval.reason}</p>
-              <div className="bg-muted rounded p-3 mb-6 font-mono text-sm">
-                {pendingApproval.action.type === 'tool' && pendingApproval.action.tool && (
-                  <span>Tool: {pendingApproval.action.tool}</span>
-                )}
-                {pendingApproval.action.type === 'execution' && (
-                  <span>Execution: {pendingApproval.action.command || pendingApproval.action.code}</span>
-                )}
-                {pendingApproval.action.type === 'file' && pendingApproval.action.path && (
-                  <span>File: {pendingApproval.action.operation} {pendingApproval.action.path}</span>
-                )}
-                {pendingApproval.action.type === 'network' && pendingApproval.action.host && (
-                  <span>Network: {pendingApproval.action.host}</span>
-                )}
-              </div>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => handleResolveApproval(false)}
-                  className="px-4 py-2 rounded border hover:bg-muted transition-colors"
-                >
-                  Deny
-                </button>
-                <button
-                  onClick={() => handleResolveApproval(true)}
-                  className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  Approve
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Security Approval Dialog - Integrated SensitiveAuthDialog */}
+        <SensitiveAuthDialog
+          open={pendingApproval !== null}
+          onClose={() => setPendingApproval(null)}
+          request={pendingApproval}
+          onApprove={handleApproveAuth}
+          onDeny={handleDenyAuth}
+        />
       </div>
 
       {/* Capture Results Modal */}

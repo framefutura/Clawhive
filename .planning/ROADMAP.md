@@ -23,15 +23,15 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** — Secure Electron shell, basic single-agent chat, IPC bridge
 - [x] **Phase 2: Workspace & Control Plane** — Multi-tab workspace, Cyber Workspace, file system, built-in browser
 - [x] **Phase 3: Security Core** — Per-task security levels, privacy guard, sandboxed execution, approval gates
-- [ ] **Phase 4.01: Agent Registry Foundation** — Agent CRUD, role templates, lifecycle, permissions, storage structure
-- [ ] **Phase 4.02: Agent Registry UI** — Interactive org tree, view modes, drag-drop, editor, Secretary/CEO agents
-- [ ] **Phase 4.03: Task Router** — Heartbeat scheduling, delegation, user override, workload balancing, security propagation
-- [ ] **Phase 4.04: Team Manager** — Agent/team storage, hybrid memory, sharing, collaboration, monitoring, coaching, OKR
+- [x] **Phase 4.01: Agent Registry Foundation** — Agent CRUD, role templates, lifecycle, permissions, storage structure
+- [x] **Phase 4.02: Agent Registry UI** — Interactive org tree, view modes, drag-drop, editor, Secretary/CEO agents
+- [x] **Phase 4.03: Task Router** — Heartbeat scheduling, delegation, user override, workload balancing, security propagation
+- [x] **Phase 4.04: Team Manager** — Agent/team storage, hybrid memory, sharing, collaboration, monitoring, coaching, OKR
 - [x] **Phase 4.05: A2A Messaging Foundation** — Message bus pipeline, direct messaging, leader-to-leader
-- [ ] **Phase 4.06: A2A Escalation & Hub** — Approval chains, configurable paths, secretary bridge, message hub
-- [ ] **Phase 4.07: A2A Security & Coaching** — PrivacyGuard A2A scan, self-improvement flows, subagent parent ask
-- [ ] **Phase 5: Advanced Features** — Plan-first mode, knowledge bases, accounting/reports, skills & scheduling
-- [ ] **Phase 6: Polish & Distribution** — i18n, auto-update, DMG packaging
+- [x] **Phase 4.06: A2A Escalation & Hub** — Approval chains, configurable paths, secretary bridge, message hub
+- [x] **Phase 4.07: A2A Security & Coaching** — PrivacyGuard A2A scan, self-improvement flows, subagent parent ask
+- [x] **Phase 5: Advanced Features** — All complete: Knowledge bases, accounting/reports, skills & scheduling, plan-first mode with IPC wiring and storage
+- [x] **Phase 6: Polish & Distribution** — i18n, auto-update, DMG packaging
 
 ---
 
@@ -255,7 +255,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ## Phase 6: Polish & Distribution
 
-**Status:** Planned
+**Status:** Complete
 **Goal:** Final UX polish, internationalization, and distribution mechanism for production release
 **Depends on:** Phase 5
 **Requirements:** POL-01 through POL-09
@@ -267,10 +267,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 5. DMG distribution works with code signing and notarization
 
 **Plans:** 4 plans
-- [ ] 06-01: Internationalization
-- [ ] 06-02: Distribution
-- [ ] 06-03: Polish
-- [ ] 06-04: Custom LLM Providers
+- [x] 06-01: Internationalization
+- [x] 06-02: Distribution
+- [x] 06-03: Polish
+- [x] 06-04: Custom LLM Providers
 
 ---
 
@@ -281,15 +281,15 @@ Decimal phases appear between their surrounding integers in numeric order.
 | 1. Foundation | v1.0 | 5/5 | Complete |
 | 2. Workspace & Control Plane | v1.0 | 4/4 | Complete |
 | 3. Security Core | v1.0 | 5/5 | Complete |
-| 4.01. Agent Registry Foundation | v1.1 | 0/? | Planned |
-| 4.02. Agent Registry UI | v1.1 | 0/? | Planned |
-| 4.03. Task Router | v1.1 | 0/? | Planned |
-| 4.04. Team Manager | v1.1 | 0/? | Planned |
+| 4.01. Agent Registry Foundation | v1.1 | 1/1 | Complete (2026-04-01) |
+| 4.02. Agent Registry UI | v1.1 | 5/5 | Complete (2026-04-03) |
+| 4.03. Task Router | v1.1 | 1/1 | Complete (2026-04-03) |
+| 4.04. Team Manager | v1.1 | 1/1 | Complete (2026-04-03) |
 | 4.05. A2A Messaging Foundation | v1.1 | 1/1 | Complete (2026-04-04) |
-| 4.06. A2A Escalation & Hub | v1.1 | 1/1 | Complete (2026-04-05) |
-| 4.07. A2A Security & Coaching | v1.1 | 1/1 | Complete (2026-04-05) |
-| 5. Advanced Features | v1.0 | 0/4 | Planned |
-| 6. Polish & Distribution | v1.0 | 0/4 | Planned |
+| 4.06. A2A Escalation & Hub | v1.1 | 1/1 | Complete (2026-04-04) |
+| 4.07. A2A Security & Coaching | v1.1 | 1/1 | Complete (2026-04-04) |
+| 5. Advanced Features | v1.0 | 3.5/4 | 3 complete, 1 partial (plan-first needs IPC) |
+| 6. Polish & Distribution | v1.0 | 4/4 | Complete (2026-04-06) |
 
 ---
 

@@ -1,4 +1,6 @@
 import initSqlJs from 'sql.js'
+
+type SqlJsDatabase = InstanceType<Awaited<ReturnType<typeof initSqlJs>>['Database']>
 import { app } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -6,7 +8,7 @@ import { encryptData, decryptData, encryptString, decryptString } from './crypto
 import type { GeneCategory } from './session.js'
 
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null
-let db: InstanceType<NonNullable<typeof SQL>['Database']> | null = null
+let db: SqlJsDatabase | null = null
 let dbPath: string | null = null
 
 const DEFAULT_DB_NAME = 'clawhive.db'
@@ -87,7 +89,7 @@ function initSchema(database: typeof db) {
     CREATE TABLE IF NOT EXISTS agents (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('CEO', 'CFO', 'COO', 'Department Head', 'Team Leader', 'Individual Agent')),
+      role TEXT NOT NULL CHECK(role IN ('CEO', 'CFO', 'COO', 'Department Head', 'Team Leader', 'Individual Agent', 'Secretary')),
       parentId TEXT REFERENCES agents(id) ON DELETE SET NULL,
       department TEXT,
       team TEXT,
@@ -97,6 +99,13 @@ function initSchema(database: typeof db) {
       apiKey TEXT,
       allowedTools TEXT NOT NULL DEFAULT '[]',
       defaultSecurityLevel TEXT NOT NULL DEFAULT 'medium',
+      status TEXT NOT NULL DEFAULT 'idle',
+      lifecycle TEXT NOT NULL DEFAULT 'persistent',
+      docs TEXT NOT NULL DEFAULT '{}',
+      customizations TEXT NOT NULL DEFAULT '{}',
+      avatarLabel TEXT,
+      summary TEXT,
+      lastActiveAt INTEGER,
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL
     );
@@ -206,20 +215,45 @@ function initSchema(database: typeof db) {
     CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
     CREATE INDEX IF NOT EXISTS idx_team_members_agent ON team_members(agent_id);
 
-    -- Shared Memory System
     CREATE TABLE IF NOT EXISTS shared_memories (
       id TEXT PRIMARY KEY,
-      team_id TEXT REFERENCES teams(id) ON DELETE CASCADE,
-      agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
-      type TEXT NOT NULL CHECK(type IN ('conversation', 'file', 'note', 'task_result')),
+      team_id TEXT,
+      agent_id TEXT,
+      type TEXT NOT NULL,
       content TEXT NOT NULL,
       tags TEXT NOT NULL DEFAULT '[]',
+      min_security_level TEXT NOT NULL DEFAULT 'high',
+      shared_scope TEXT NOT NULL DEFAULT 'team',
       shared_at INTEGER NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_shared_memories_team ON shared_memories(team_id);
     CREATE INDEX IF NOT EXISTS idx_shared_memories_agent ON shared_memories(agent_id);
-    CREATE INDEX IF NOT EXISTS idx_shared_memories_type ON shared_memories(type);
+
+    CREATE TABLE IF NOT EXISTS coaching_entries (
+      id TEXT PRIMARY KEY,
+      team_id TEXT NOT NULL,
+      leader_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      note TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_coaching_team ON coaching_entries(team_id);
+
+    CREATE TABLE IF NOT EXISTS team_okrs (
+      id TEXT PRIMARY KEY,
+      team_id TEXT NOT NULL,
+      leader_id TEXT NOT NULL,
+      objective TEXT NOT NULL,
+      key_results TEXT NOT NULL DEFAULT '[]',
+      review_cadence TEXT NOT NULL DEFAULT 'weekly',
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_okrs_team ON team_okrs(team_id);
 
     -- Sensitive Data Authorization: Authorization requests
     CREATE TABLE IF NOT EXISTS sensitive_auth_requests (
@@ -275,6 +309,109 @@ function initSchema(database: typeof db) {
       risk_level TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
+
+    -- Plan Engine: Plans table
+    CREATE TABLE IF NOT EXISTS plans (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'rejected', 'running', 'completed', 'paused')),
+      steps TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_plans_task ON plans(task_id);
+    CREATE INDEX IF NOT EXISTS idx_plans_agent ON plans(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
+
+    -- Plan Engine: Plan executions table
+    CREATE TABLE IF NOT EXISTS plan_executions (
+      id TEXT PRIMARY KEY,
+      plan_id TEXT NOT NULL,
+      step_index INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'completed', 'failed', 'blocked')),
+      output TEXT,
+      started_at INTEGER,
+      completed_at INTEGER,
+      FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_plan_executions_plan ON plan_executions(plan_id);
+
+    -- Knowledge Base: Knowledge sources table
+    CREATE TABLE IF NOT EXISTS knowledge_sources (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK(type IN ('files', 'obsidian', 'notion')),
+      name TEXT NOT NULL,
+      config TEXT NOT NULL,
+      last_indexed_at INTEGER,
+      document_count INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_sources_agent ON knowledge_sources(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_sources_type ON knowledge_sources(type);
+
+    -- Knowledge Base: Knowledge documents table
+    CREATE TABLE IF NOT EXISTS knowledge_documents (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES knowledge_sources(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      metadata TEXT,
+      indexed_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_documents_source ON knowledge_documents(source_id);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_documents_title ON knowledge_documents(title);
+
+    -- Accounting: Budgets table
+    CREATE TABLE IF NOT EXISTS budgets (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      allocated_tokens INTEGER NOT NULL,
+      used_tokens INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'exceeded', 'closed')),
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_budgets_task ON budgets(task_id);
+    CREATE INDEX IF NOT EXISTS idx_budgets_agent ON budgets(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_budgets_status ON budgets(status);
+
+    -- Accounting: Cost events table
+    CREATE TABLE IF NOT EXISTS cost_events (
+      id TEXT PRIMARY KEY,
+      budget_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      run_id TEXT,
+      tokens INTEGER NOT NULL,
+      cost_usd REAL,
+      reason TEXT,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cost_events_budget ON cost_events(budget_id);
+    CREATE INDEX IF NOT EXISTS idx_cost_events_agent ON cost_events(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_cost_events_timestamp ON cost_events(timestamp);
+
+    -- Accounting: Budget requests table
+    CREATE TABLE IF NOT EXISTS budget_requests (
+      id TEXT PRIMARY KEY,
+      budget_id TEXT NOT NULL,
+      requested_tokens INTEGER NOT NULL,
+      justification TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'denied')),
+      reviewed_by TEXT,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_budget_requests_budget ON budget_requests(budget_id);
+    CREATE INDEX IF NOT EXISTS idx_budget_requests_status ON budget_requests(status);
   `)
 
   // Seed default roles if table is empty
@@ -542,6 +679,13 @@ export interface DbAgent {
   apiKey?: string
   allowedTools: string[]
   defaultSecurityLevel: string
+  status: string
+  lifecycle: string
+  docs: Record<string, string>
+  customizations: Record<string, string[]>
+  avatarLabel?: string
+  summary?: string
+  lastActiveAt?: number
   createdAt: number
   updatedAt: number
 }
@@ -551,7 +695,7 @@ export function createAgent(agent: Omit<DbAgent, 'createdAt' | 'updatedAt'>): vo
 
   const now = Date.now()
   db.run(
-    'INSERT INTO agents (id, name, role, parentId, department, team, genes, provider, model, apiKey, allowedTools, defaultSecurityLevel, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO agents (id, name, role, parentId, department, team, genes, provider, model, apiKey, allowedTools, defaultSecurityLevel, status, lifecycle, docs, customizations, avatarLabel, summary, lastActiveAt, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       agent.id,
       agent.name,
@@ -565,6 +709,13 @@ export function createAgent(agent: Omit<DbAgent, 'createdAt' | 'updatedAt'>): vo
       agent.apiKey ? encryptString(agent.apiKey) : null,
       JSON.stringify(agent.allowedTools ?? []),
       agent.defaultSecurityLevel ?? 'medium',
+      agent.status ?? 'idle',
+      agent.lifecycle ?? 'persistent',
+      JSON.stringify(agent.docs ?? {}),
+      JSON.stringify(agent.customizations ?? {}),
+      agent.avatarLabel ?? null,
+      agent.summary ?? null,
+      agent.lastActiveAt ?? null,
       now,
       now,
     ]
@@ -623,6 +774,34 @@ export function updateAgent(id: string, updates: Partial<Omit<DbAgent, 'id'>>): 
     fields.push('defaultSecurityLevel = ?')
     values.push(updates.defaultSecurityLevel)
   }
+  if (updates.status !== undefined) {
+    fields.push('status = ?')
+    values.push(updates.status)
+  }
+  if (updates.lifecycle !== undefined) {
+    fields.push('lifecycle = ?')
+    values.push(updates.lifecycle)
+  }
+  if (updates.docs !== undefined) {
+    fields.push('docs = ?')
+    values.push(JSON.stringify(updates.docs))
+  }
+  if (updates.customizations !== undefined) {
+    fields.push('customizations = ?')
+    values.push(JSON.stringify(updates.customizations))
+  }
+  if (updates.avatarLabel !== undefined) {
+    fields.push('avatarLabel = ?')
+    values.push(updates.avatarLabel)
+  }
+  if (updates.summary !== undefined) {
+    fields.push('summary = ?')
+    values.push(updates.summary)
+  }
+  if (updates.lastActiveAt !== undefined) {
+    fields.push('lastActiveAt = ?')
+    values.push(updates.lastActiveAt?.toString() ?? null)
+  }
 
   if (fields.length === 0) return
 
@@ -663,6 +842,13 @@ export function getAgentById(id: string): DbAgent | null {
       apiKey: row.apiKey ? decryptString(row.apiKey as string) : undefined,
       allowedTools: JSON.parse((row.allowedTools as string) || '[]'),
       defaultSecurityLevel: (row.defaultSecurityLevel as string) || 'medium',
+      status: (row.status as string) || 'idle',
+      lifecycle: (row.lifecycle as string) || 'persistent',
+      docs: JSON.parse((row.docs as string) || '{}'),
+      customizations: JSON.parse((row.customizations as string) || '{}'),
+      avatarLabel: row.avatarLabel as string | undefined,
+      summary: row.summary as string | undefined,
+      lastActiveAt: row.lastActiveAt as number | undefined,
       createdAt: row.createdAt as number,
       updatedAt: row.updatedAt as number,
     }
@@ -693,6 +879,13 @@ export function getAgents(): DbAgent[] {
       apiKey: row.apiKey ? decryptString(row.apiKey as string) : undefined,
       allowedTools: JSON.parse((row.allowedTools as string) || '[]'),
       defaultSecurityLevel: (row.defaultSecurityLevel as string) || 'medium',
+      status: (row.status as string) || 'idle',
+      lifecycle: (row.lifecycle as string) || 'persistent',
+      docs: JSON.parse((row.docs as string) || '{}'),
+      customizations: JSON.parse((row.customizations as string) || '{}'),
+      avatarLabel: row.avatarLabel as string | undefined,
+      summary: row.summary as string | undefined,
+      lastActiveAt: row.lastActiveAt as number | undefined,
       createdAt: row.createdAt as number,
       updatedAt: row.updatedAt as number,
     })
@@ -797,7 +990,7 @@ export function listAgentTeams(agentId: string): string[] {
 }
 
 // Shared Memory operations
-export type SharedMemoryType = 'conversation' | 'file' | 'note' | 'task_result'
+import type { SharedMemoryType } from '../common/team.js'
 
 export interface DbSharedMemory {
   id: string
@@ -805,7 +998,9 @@ export interface DbSharedMemory {
   agent_id: string | null
   type: SharedMemoryType
   content: string
-  tags: string // JSON array string
+  tags: string
+  min_security_level: string
+  shared_scope: string
   shared_at: number
 }
 
@@ -813,22 +1008,10 @@ export function createSharedMemory(memory: Omit<DbSharedMemory, 'shared_at'>): v
   if (!db) throw new Error('Database not initialized')
   const now = Date.now()
   db.run(
-    'INSERT INTO shared_memories (id, team_id, agent_id, type, content, tags, shared_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [memory.id, memory.team_id ?? null, memory.agent_id ?? null, memory.type, memory.content, memory.tags, now]
+    'INSERT INTO shared_memories (id, team_id, agent_id, type, content, tags, min_security_level, shared_scope, shared_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [memory.id, memory.team_id ?? null, memory.agent_id ?? null, memory.type, memory.content, memory.tags, memory.min_security_level, memory.shared_scope, now]
   )
   saveDatabase().catch(console.error)
-}
-
-export function getSharedMemory(id: string): DbSharedMemory | null {
-  if (!db) throw new Error('Database not initialized')
-  const stmt = db.prepare('SELECT * FROM shared_memories WHERE id = ?')
-  stmt.bind([id])
-  let result: DbSharedMemory | null = null
-  if (stmt.step()) {
-    result = stmt.getAsObject() as unknown as DbSharedMemory
-  }
-  stmt.free()
-  return result
 }
 
 export function listTeamMemories(teamId: string): DbSharedMemory[] {
@@ -857,20 +1040,15 @@ export function listAgentMemories(agentId: string): DbSharedMemory[] {
 
 export function queryTeamMemories(teamId: string, query: string, tags?: string[]): DbSharedMemory[] {
   if (!db) throw new Error('Database not initialized')
-
   let sql = 'SELECT * FROM shared_memories WHERE team_id = ? AND content LIKE ?'
   const params: (string | null)[] = [teamId, `%${query}%`]
-
   if (tags && tags.length > 0) {
-    // Filter by tags -- each tag must appear in the JSON array
     for (const tag of tags) {
       sql += ' AND tags LIKE ?'
       params.push(`%${JSON.stringify(tag).slice(1, -1)}%`)
     }
   }
-
   sql += ' ORDER BY shared_at DESC'
-
   const stmt = db.prepare(sql)
   stmt.bind(params)
   const results: DbSharedMemory[] = []
@@ -885,6 +1063,71 @@ export function deleteSharedMemory(id: string): void {
   if (!db) throw new Error('Database not initialized')
   db.run('DELETE FROM shared_memories WHERE id = ?', [id])
   saveDatabase().catch(console.error)
+}
+
+// Coaching operations
+export interface DbCoachingEntry {
+  id: string
+  team_id: string
+  leader_id: string
+  agent_id: string
+  note: string
+  created_at: number
+}
+
+export function createCoachingEntry(entry: Omit<DbCoachingEntry, 'created_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO coaching_entries (id, team_id, leader_id, agent_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [entry.id, entry.team_id, entry.leader_id, entry.agent_id, entry.note, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function listCoachingEntries(teamId: string): DbCoachingEntry[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM coaching_entries WHERE team_id = ? ORDER BY created_at DESC')
+  stmt.bind([teamId])
+  const results: DbCoachingEntry[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbCoachingEntry)
+  }
+  stmt.free()
+  return results
+}
+
+// OKR operations
+export interface DbTeamOkr {
+  id: string
+  team_id: string
+  leader_id: string
+  objective: string
+  key_results: string
+  review_cadence: string
+  created_at: number
+}
+
+export function createOkr(okr: Omit<DbTeamOkr, 'created_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO team_okrs (id, team_id, leader_id, objective, key_results, review_cadence, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [okr.id, okr.team_id, okr.leader_id, okr.objective, okr.key_results, okr.review_cadence, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function listOkrs(teamId: string): DbTeamOkr[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM team_okrs WHERE team_id = ? ORDER BY created_at DESC')
+  stmt.bind([teamId])
+  const results: DbTeamOkr[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbTeamOkr)
+  }
+  stmt.free()
+  return results
 }
 
 // Gene operations (DeskClaw gene system)
@@ -959,6 +1202,13 @@ export function getDataPath(): string | null {
   return dbPath ? path.dirname(dbPath) : null
 }
 
+/**
+ * Check if database is initialized
+ */
+export function isDbInitialized(): boolean {
+  return db !== null
+}
+
 // Migration helper for future schema changes
 export async function runMigrations(): Promise<void> {
   if (!db) throw new Error('Database not initialized')
@@ -970,8 +1220,8 @@ export async function runMigrations(): Promise<void> {
   if (currentVersion < 1) {
     // Migration 1: Add security_level and role_name to sessions table
     const sessionColumns = db.exec('PRAGMA table_info(sessions)')[0]?.values ?? []
-    const hasSecurityLevel = sessionColumns.some((column) => column[1] === 'security_level')
-    const hasRoleName = sessionColumns.some((column) => column[1] === 'role_name')
+    const hasSecurityLevel = sessionColumns.some((column: unknown[]) => column[1] === 'security_level')
+    const hasRoleName = sessionColumns.some((column: unknown[]) => column[1] === 'role_name')
 
     if (!hasSecurityLevel) {
       db.run(
@@ -987,8 +1237,8 @@ export async function runMigrations(): Promise<void> {
   if (currentVersion < 2) {
     // Migration 2: Expand agents table for hierarchy and permissions
     const agentColumns = db.exec('PRAGMA table_info(agents)')[0]?.values ?? []
-    const hasParentId = agentColumns.some((column) => column[1] === 'parentId')
-    const hasApiKey = agentColumns.some((column) => column[1] === 'apiKey')
+    const hasParentId = agentColumns.some((column: unknown[]) => column[1] === 'parentId')
+    const hasApiKey = agentColumns.some((column: unknown[]) => column[1] === 'apiKey')
 
     if (!hasParentId && !hasApiKey) {
       // Old schema with snake_case columns; migrate to new schema
@@ -997,7 +1247,7 @@ export async function runMigrations(): Promise<void> {
         CREATE TABLE agents_new (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('CEO', 'CFO', 'COO', 'Department Head', 'Team Leader', 'Individual Agent')),
+          role TEXT NOT NULL CHECK(role IN ('CEO', 'CFO', 'COO', 'Department Head', 'Team Leader', 'Individual Agent', 'Secretary')),
           parentId TEXT REFERENCES agents_new(id) ON DELETE SET NULL,
           department TEXT,
           team TEXT,
@@ -1007,13 +1257,20 @@ export async function runMigrations(): Promise<void> {
           apiKey TEXT,
           allowedTools TEXT NOT NULL DEFAULT '[]',
           defaultSecurityLevel TEXT NOT NULL DEFAULT 'medium',
+          status TEXT NOT NULL DEFAULT 'idle',
+          lifecycle TEXT NOT NULL DEFAULT 'persistent',
+          docs TEXT NOT NULL DEFAULT '{}',
+          customizations TEXT NOT NULL DEFAULT '{}',
+          avatarLabel TEXT,
+          summary TEXT,
+          lastActiveAt INTEGER,
           createdAt INTEGER NOT NULL,
           updatedAt INTEGER NOT NULL
         )
       `)
       db.run(`
         INSERT INTO agents_new
-        SELECT id, name, role, NULL, NULL, NULL, '[]', provider, model, api_key_encrypted, '[]', 'medium', created_at, updated_at
+        SELECT id, name, role, NULL, NULL, NULL, '[]', provider, model, api_key_encrypted, '[]', 'medium', 'idle', 'persistent', '{}', '{}', NULL, NULL, NULL, created_at, updated_at
         FROM agents
       `)
       db.run('DROP TABLE agents')
@@ -1033,7 +1290,26 @@ export async function runMigrations(): Promise<void> {
     }
   }
 
-  setConfig('schema_version', '2')
+  if (currentVersion < 3) {
+    const agentColumns = db.exec('PRAGMA table_info(agents)')[0]?.values ?? []
+    const hasStatus = agentColumns.some((column: unknown[]) => column[1] === 'status')
+    const hasLifecycle = agentColumns.some((column: unknown[]) => column[1] === 'lifecycle')
+    const hasDocs = agentColumns.some((column: unknown[]) => column[1] === 'docs')
+    const hasCustomizations = agentColumns.some((column: unknown[]) => column[1] === 'customizations')
+    const hasAvatarLabel = agentColumns.some((column: unknown[]) => column[1] === 'avatarLabel')
+    const hasSummary = agentColumns.some((column: unknown[]) => column[1] === 'summary')
+    const hasLastActiveAt = agentColumns.some((column: unknown[]) => column[1] === 'lastActiveAt')
+
+    if (!hasStatus) db.run("ALTER TABLE agents ADD COLUMN status TEXT NOT NULL DEFAULT 'idle'")
+    if (!hasLifecycle) db.run("ALTER TABLE agents ADD COLUMN lifecycle TEXT NOT NULL DEFAULT 'persistent'")
+    if (!hasDocs) db.run("ALTER TABLE agents ADD COLUMN docs TEXT NOT NULL DEFAULT '{}' ")
+    if (!hasCustomizations) db.run("ALTER TABLE agents ADD COLUMN customizations TEXT NOT NULL DEFAULT '{}' ")
+    if (!hasAvatarLabel) db.run('ALTER TABLE agents ADD COLUMN avatarLabel TEXT')
+    if (!hasSummary) db.run('ALTER TABLE agents ADD COLUMN summary TEXT')
+    if (!hasLastActiveAt) db.run('ALTER TABLE agents ADD COLUMN lastActiveAt INTEGER')
+  }
+
+  setConfig('schema_version', '3')
 }
 
 // Tab operations
@@ -1483,4 +1759,478 @@ export function removeSafeZone(safeZone: string): void {
   const normalized = path.resolve(safeZone)
   settings.safeZones = settings.safeZones.filter(z => z !== normalized)
   setPrivacySettings(settings)
+}
+
+// Knowledge Base operations
+export interface DbKnowledgeSource {
+  id: string
+  agent_id: string
+  type: 'files' | 'obsidian' | 'notion'
+  name: string
+  config: string // JSON
+  last_indexed_at: number | null
+  document_count: number
+  created_at: number
+}
+
+export interface DbKnowledgeDocument {
+  id: string
+  source_id: string
+  title: string
+  content: string
+  metadata: string | null // JSON
+  indexed_at: number
+}
+
+export function createKnowledgeSource(source: Omit<DbKnowledgeSource, 'created_at' | 'last_indexed_at' | 'document_count'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO knowledge_sources (id, agent_id, type, name, config, last_indexed_at, document_count, created_at) VALUES (?, ?, ?, ?, ?, NULL, 0, ?)',
+    [source.id, source.agent_id, source.type, source.name, source.config, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function getKnowledgeSource(id: string): DbKnowledgeSource | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM knowledge_sources WHERE id = ?')
+  stmt.bind([id])
+  let result: DbKnowledgeSource | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbKnowledgeSource
+  }
+  stmt.free()
+  return result
+}
+
+export function listKnowledgeSources(agentId: string): DbKnowledgeSource[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM knowledge_sources WHERE agent_id = ? ORDER BY created_at DESC')
+  stmt.bind([agentId])
+  const results: DbKnowledgeSource[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbKnowledgeSource)
+  }
+  stmt.free()
+  return results
+}
+
+export function updateKnowledgeSourceLastIndexed(sourceId: string, documentCount: number): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run(
+    'UPDATE knowledge_sources SET last_indexed_at = ?, document_count = ? WHERE id = ?',
+    [Date.now(), documentCount, sourceId]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function deleteKnowledgeSource(sourceId: string): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run('DELETE FROM knowledge_sources WHERE id = ?', [sourceId])
+  saveDatabase().catch(console.error)
+}
+
+export function insertKnowledgeDocument(doc: Omit<DbKnowledgeDocument, 'indexed_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run(
+    'INSERT INTO knowledge_documents (id, source_id, title, content, metadata, indexed_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [doc.id, doc.source_id, doc.title, doc.content, doc.metadata ?? null, Date.now()]
+  )
+}
+
+export function batchInsertKnowledgeDocuments(docs: Omit<DbKnowledgeDocument, 'indexed_at'>[]): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  const stmt = db.prepare(
+    'INSERT INTO knowledge_documents (id, source_id, title, content, metadata, indexed_at) VALUES (?, ?, ?, ?, ?, ?)'
+  )
+  for (const doc of docs) {
+    stmt.run([doc.id, doc.source_id, doc.title, doc.content, doc.metadata ?? null, now])
+  }
+  stmt.free()
+}
+
+export function searchKnowledgeDocuments(agentId: string, query: string, limit = 10): DbKnowledgeDocument[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare(
+    `SELECT kd.* FROM knowledge_documents kd
+     JOIN knowledge_sources ks ON kd.source_id = ks.id
+     WHERE ks.agent_id = ?
+     AND (kd.title LIKE ? OR kd.content LIKE ?)
+     ORDER BY kd.indexed_at DESC
+     LIMIT ?`
+  )
+  const searchPattern = `%${query}%`
+  stmt.bind([agentId, searchPattern, searchPattern, limit])
+  const results: DbKnowledgeDocument[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbKnowledgeDocument)
+  }
+  stmt.free()
+  return results
+}
+
+export function getKnowledgeDocumentCount(sourceId: string): number {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT COUNT(*) as count FROM knowledge_documents WHERE source_id = ?')
+  stmt.bind([sourceId])
+  let count = 0
+  if (stmt.step()) {
+    count = stmt.getAsObject().count as number
+  }
+  stmt.free()
+  return count
+}
+
+export function deleteKnowledgeDocumentsBySource(sourceId: string): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run('DELETE FROM knowledge_documents WHERE source_id = ?', [sourceId])
+  saveDatabase().catch(console.error)
+}
+
+// Budget operations
+export interface DbBudget {
+  id: string
+  task_id: string
+  agent_id: string
+  allocated_tokens: number
+  used_tokens: number
+  status: 'active' | 'exceeded' | 'closed'
+  created_at: number
+}
+
+export interface DbCostEvent {
+  id: string
+  budget_id: string
+  task_id: string
+  agent_id: string
+  run_id: string | null
+  tokens: number
+  cost_usd: number | null
+  reason: string | null
+  timestamp: number
+}
+
+export interface DbBudgetRequest {
+  id: string
+  budget_id: string
+  requested_tokens: number
+  justification: string
+  status: 'pending' | 'approved' | 'denied'
+  reviewed_by: string | null
+  created_at: number
+}
+
+export function createBudget(budget: Omit<DbBudget, 'created_at' | 'used_tokens'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO budgets (id, task_id, agent_id, allocated_tokens, used_tokens, status, created_at) VALUES (?, ?, ?, ?, 0, ?, ?)',
+    [budget.id, budget.task_id, budget.agent_id, budget.allocated_tokens, budget.status, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function getBudget(id: string): DbBudget | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM budgets WHERE id = ?')
+  stmt.bind([id])
+  let result: DbBudget | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbBudget
+  }
+  stmt.free()
+  return result
+}
+
+export function getBudgetByTask(taskId: string): DbBudget | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM budgets WHERE task_id = ?')
+  stmt.bind([taskId])
+  let result: DbBudget | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbBudget
+  }
+  stmt.free()
+  return result
+}
+
+export function updateBudgetUsedTokens(budgetId: string, usedTokens: number): void {
+  if (!db) throw new Error('Database not initialized')
+  const status = usedTokens >= 0 ? 'exceeded' : 'active'
+  db.run('UPDATE budgets SET used_tokens = ?, status = ? WHERE id = ?', [usedTokens, status, budgetId])
+  saveDatabase().catch(console.error)
+}
+
+export function closeBudget(budgetId: string): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run("UPDATE budgets SET status = 'closed' WHERE id = ?", [budgetId])
+  saveDatabase().catch(console.error)
+}
+
+export function recordCostEvent(event: Omit<DbCostEvent, 'timestamp'>): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run(
+    'INSERT INTO cost_events (id, budget_id, task_id, agent_id, run_id, tokens, cost_usd, reason, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [event.id, event.budget_id, event.task_id, event.agent_id, event.run_id ?? null, event.tokens, event.cost_usd ?? null, event.reason ?? null, Date.now()]
+  )
+
+  const budget = getBudget(event.budget_id)
+  if (budget) {
+    updateBudgetUsedTokens(event.budget_id, budget.used_tokens + event.tokens)
+  }
+  saveDatabase().catch(console.error)
+}
+
+export function getCostEventsByBudget(budgetId: string): DbCostEvent[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM cost_events WHERE budget_id = ? ORDER BY timestamp DESC')
+  stmt.bind([budgetId])
+  const results: DbCostEvent[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbCostEvent)
+  }
+  stmt.free()
+  return results
+}
+
+export function getCostEventsByAgent(agentId: string, startTime?: number, endTime?: number): DbCostEvent[] {
+  if (!db) throw new Error('Database not initialized')
+  let sql = 'SELECT * FROM cost_events WHERE agent_id = ?'
+  const params: (string | number)[] = [agentId]
+  if (startTime) {
+    sql += ' AND timestamp >= ?'
+    params.push(startTime)
+  }
+  if (endTime) {
+    sql += ' AND timestamp <= ?'
+    params.push(endTime)
+  }
+  sql += ' ORDER BY timestamp DESC'
+  const stmt = db.prepare(sql)
+  stmt.bind(params)
+  const results: DbCostEvent[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbCostEvent)
+  }
+  stmt.free()
+  return results
+}
+
+export function getAgentCostRollup(agentId: string, startTime?: number, endTime?: number): { totalTokens: number; totalUsd: number; eventCount: number } {
+  if (!db) throw new Error('Database not initialized')
+  let sql = 'SELECT SUM(tokens) as total_tokens, SUM(cost_usd) as total_usd, COUNT(*) as event_count FROM cost_events WHERE agent_id = ?'
+  const params: (string | number)[] = [agentId]
+  if (startTime) {
+    sql += ' AND timestamp >= ?'
+    params.push(startTime)
+  }
+  if (endTime) {
+    sql += ' AND timestamp <= ?'
+    params.push(endTime)
+  }
+  const stmt = db.prepare(sql)
+  stmt.bind(params)
+  let result = { totalTokens: 0, totalUsd: 0, eventCount: 0 }
+  if (stmt.step()) {
+    const row = stmt.getAsObject() as { total_tokens: number | null; total_usd: number | null; event_count: number | null }
+    result = {
+      totalTokens: row.total_tokens ?? 0,
+      totalUsd: row.total_usd ?? 0,
+      eventCount: row.event_count ?? 0,
+    }
+  }
+  stmt.free()
+  return result
+}
+
+export function createBudgetRequest(request: Omit<DbBudgetRequest, 'created_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO budget_requests (id, budget_id, requested_tokens, justification, status, reviewed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [request.id, request.budget_id, request.requested_tokens, request.justification, request.status, request.reviewed_by ?? null, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function getBudgetRequest(id: string): DbBudgetRequest | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM budget_requests WHERE id = ?')
+  stmt.bind([id])
+  let result: DbBudgetRequest | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbBudgetRequest
+  }
+  stmt.free()
+  return result
+}
+
+export function getPendingBudgetRequests(agentId?: string): DbBudgetRequest[] {
+  if (!db) throw new Error('Database not initialized')
+  let sql = "SELECT * FROM budget_requests WHERE status = 'pending'"
+  if (agentId) {
+    sql += ' AND budget_id IN (SELECT id FROM budgets WHERE agent_id = ?)'
+  }
+  sql += ' ORDER BY created_at DESC'
+  const stmt = db.prepare(sql)
+  if (agentId) {
+    stmt.bind([agentId])
+  }
+  const results: DbBudgetRequest[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbBudgetRequest)
+  }
+  stmt.free()
+  return results
+}
+
+export function updateBudgetRequestStatus(requestId: string, status: 'approved' | 'denied', reviewedBy?: string): void {
+  if (!db) throw new Error('Database not initialized')
+  if (reviewedBy) {
+    db.run('UPDATE budget_requests SET status = ?, reviewed_by = ? WHERE id = ?', [status, reviewedBy, requestId])
+  } else {
+    db.run('UPDATE budget_requests SET status = ? WHERE id = ?', [status, requestId])
+  }
+  saveDatabase().catch(console.error)
+}
+
+// Plan Engine operations
+export interface DbPlan {
+  id: string
+  task_id: string
+  agent_id: string
+  status: 'draft' | 'approved' | 'rejected' | 'running' | 'completed' | 'paused'
+  steps: string // JSON array
+  created_at: number
+  updated_at: number
+}
+
+export interface DbPlanExecution {
+  id: string
+  plan_id: string
+  step_index: number
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'blocked'
+  output: string | null
+  started_at: number | null
+  completed_at: number | null
+}
+
+export function createPlan(plan: Omit<DbPlan, 'created_at' | 'updated_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  const now = Date.now()
+  db.run(
+    'INSERT INTO plans (id, task_id, agent_id, status, steps, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [plan.id, plan.task_id, plan.agent_id, plan.status, plan.steps, now, now]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function getPlan(id: string): DbPlan | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM plans WHERE id = ?')
+  stmt.bind([id])
+  let result: DbPlan | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbPlan
+  }
+  stmt.free()
+  return result
+}
+
+export function updatePlan(id: string, updates: Partial<DbPlan>): void {
+  if (!db) throw new Error('Database not initialized')
+  const fields: string[] = []
+  const values: (string | null)[] = []
+
+  if (updates.status !== undefined) {
+    fields.push('status = ?')
+    values.push(updates.status)
+  }
+  if (updates.steps !== undefined) {
+    fields.push('steps = ?')
+    values.push(updates.steps)
+  }
+
+  if (fields.length === 0) return
+
+  fields.push('updated_at = ?')
+  values.push(Date.now().toString())
+  values.push(id)
+
+  db.run(`UPDATE plans SET ${fields.join(', ')} WHERE id = ?`, values)
+  saveDatabase().catch(console.error)
+}
+
+export function getPlansByTask(taskId: string): DbPlan[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM plans WHERE task_id = ? ORDER BY created_at DESC')
+  stmt.bind([taskId])
+  const results: DbPlan[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbPlan)
+  }
+  stmt.free()
+  return results
+}
+
+// Plan Execution operations
+export function createPlanExecution(execution: Omit<DbPlanExecution, 'started_at' | 'completed_at'>): void {
+  if (!db) throw new Error('Database not initialized')
+  db.run(
+    'INSERT INTO plan_executions (id, plan_id, step_index, status, output, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [execution.id, execution.plan_id, execution.step_index, execution.status, execution.output ?? null, Date.now(), null]
+  )
+  saveDatabase().catch(console.error)
+}
+
+export function getPlanExecution(id: string): DbPlanExecution | null {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM plan_executions WHERE id = ?')
+  stmt.bind([id])
+  let result: DbPlanExecution | null = null
+  if (stmt.step()) {
+    result = stmt.getAsObject() as unknown as DbPlanExecution
+  }
+  stmt.free()
+  return result
+}
+
+export function updatePlanExecution(id: string, updates: Partial<DbPlanExecution>): void {
+  if (!db) throw new Error('Database not initialized')
+  const fields: string[] = []
+  const values: (string | number | null)[] = []
+
+  if (updates.status !== undefined) {
+    fields.push('status = ?')
+    values.push(updates.status)
+  }
+  if (updates.output !== undefined) {
+    fields.push('output = ?')
+    values.push(updates.output)
+  }
+  if (updates.completed_at !== undefined) {
+    fields.push('completed_at = ?')
+    values.push(updates.completed_at)
+  }
+
+  if (fields.length === 0) return
+
+  values.push(id)
+
+  db.run(`UPDATE plan_executions SET ${fields.join(', ')} WHERE id = ?`, values)
+  saveDatabase().catch(console.error)
+}
+
+export function getPlanExecutions(planId: string): DbPlanExecution[] {
+  if (!db) throw new Error('Database not initialized')
+  const stmt = db.prepare('SELECT * FROM plan_executions WHERE plan_id = ? ORDER BY step_index ASC')
+  stmt.bind([planId])
+  const results: DbPlanExecution[] = []
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as unknown as DbPlanExecution)
+  }
+  stmt.free()
+  return results
 }

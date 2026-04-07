@@ -133,9 +133,23 @@ export function FileUpload({ onUpload, selectedFiles = [], onRemoveFile, classNa
 
 // Hook to handle clipboard paste globally
 export function useClipboardPaste(onPaste: (files: File[]) => void) {
+  const onPasteRef = useRef(onPaste)
+  onPasteRef.current = onPaste
+  
   useEffect(() => {
+    // Ensure we're in a browser environment with clipboard access
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return undefined
+    }
+    if (!document.addEventListener) {
+      return undefined
+    }
+    
     const handler = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items
+      // Guard against null clipboardData
+      if (!e.clipboardData) return
+      
+      const items = e.clipboardData.items
       if (!items) return
 
       const files: File[] = []
@@ -147,11 +161,13 @@ export function useClipboardPaste(onPaste: (files: File[]) => void) {
       }
       if (files.length > 0) {
         e.preventDefault()
-        onPaste(files)
+        onPasteRef.current(files)
       }
     }
 
     document.addEventListener('paste', handler)
-    return () => document.removeEventListener('paste', handler)
-  }, [onPaste])
+    return () => {
+      document.removeEventListener('paste', handler)
+    }
+  }, [])
 }
